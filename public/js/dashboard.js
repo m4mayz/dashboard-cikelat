@@ -108,6 +108,62 @@ function showSection(sectionName) {
     loadSectionContent(sectionName);
 }
 
+function switchProfileTab(tabName) {
+    // Sembunyikan semua konten tab
+    document.querySelectorAll(".profile-tab-content").forEach((pane) => {
+        pane.classList.add("hidden");
+    });
+
+    // Non-aktifkan semua tombol tab
+    document.querySelectorAll(".profile-tab-button").forEach((button) => {
+        button.classList.remove("bg-primary", "text-white", "shadow-md");
+        button.classList.add("bg-gray-200", "text-gray-600");
+    });
+
+    // Tampilkan konten tab yang dipilih
+    const selectedPane = document.getElementById(tabName + "-pane");
+    if (selectedPane) {
+        selectedPane.classList.remove("hidden");
+    }
+
+    // Aktifkan tombol tab yang dipilih
+    const selectedButton = document.querySelector(
+        `[onclick="switchProfileTab('${tabName}')"]`
+    );
+    if (selectedButton) {
+        selectedButton.classList.add("bg-primary", "text-white", "shadow-md");
+        selectedButton.classList.remove("bg-gray-200", "text-gray-600");
+    }
+}
+
+function switchInfografisTab(tabName) {
+    // Sembunyikan semua konten tab
+    document.querySelectorAll(".infografis-tab-content").forEach((pane) => {
+        pane.classList.add("hidden");
+    });
+
+    // Non-aktifkan semua tombol tab
+    document.querySelectorAll(".infografis-tab-button").forEach((button) => {
+        button.classList.remove("bg-primary", "text-white", "shadow-md");
+        button.classList.add("bg-gray-200", "text-gray-600");
+    });
+
+    // Tampilkan konten tab yang dipilih
+    const selectedPane = document.getElementById(tabName + "-pane");
+    if (selectedPane) {
+        selectedPane.classList.remove("hidden");
+    }
+
+    // Aktifkan tombol tab yang dipilih
+    const selectedButton = document.querySelector(
+        `[onclick="switchInfografisTab('${tabName}')"]`
+    );
+    if (selectedButton) {
+        selectedButton.classList.add("bg-primary", "text-white", "shadow-md");
+        selectedButton.classList.remove("bg-gray-200", "text-gray-600");
+    }
+}
+
 // Load section content
 async function loadSectionContent(sectionName) {
     const sectionElement = document.getElementById(sectionName + "-section");
@@ -153,120 +209,284 @@ async function loadSectionContent(sectionName) {
 // Dashboard statistics
 async function loadDashboardStats() {
     try {
+        // 1. Ambil semua data yang diperlukan secara paralel
         const [
+            homeResponse,
             beritaResponse,
             pengumumanResponse,
             belanjaResponse,
-            infografisResponse,
         ] = await Promise.all([
+            fetch("/api/home"),
             fetch("/api/berita"),
             fetch("/api/pengumuman"),
             fetch("/api/belanja"),
-            fetch("/api/infografis"),
         ]);
 
+        const homeData = await homeResponse.json();
         const berita = await beritaResponse.json();
         const pengumuman = await pengumumanResponse.json();
         const belanja = await belanjaResponse.json();
-        const infografis = await infografisResponse.json();
 
-        document.getElementById("totalBerita").textContent = berita.length || 0;
-        document.getElementById("totalPengumuman").textContent =
-            pengumuman.length || 0;
-        document.getElementById("totalProduk").textContent =
-            belanja.length || 0;
-        document.getElementById("totalPenduduk").textContent =
-            infografis.statistik_penduduk?.total_penduduk || 0;
+        // 2. Siapkan variabel data untuk ditampilkan
+        const stats = {
+            total_berita: berita.length || 0,
+            total_pengumuman: pengumuman.length || 0,
+            total_produk: belanja.length || 0,
+            total_penduduk: homeData.total_penduduk || 0,
+            laki_laki: homeData.laki_laki || 0,
+            perempuan: homeData.perempuan || 0,
+        };
 
-        // Load recent activity
+        const totalGender = stats.laki_laki + stats.perempuan;
+        const lakiPercent =
+            totalGender > 0
+                ? ((stats.laki_laki / totalGender) * 100).toFixed(1)
+                : 0;
+        const perempuanPercent =
+            totalGender > 0
+                ? ((stats.perempuan / totalGender) * 100).toFixed(1)
+                : 0;
+
+        // 3. Bangun seluruh HTML untuk section dashboard
+        const dashboardSection = document.getElementById("dashboard-section");
+        if (dashboardSection) {
+            dashboardSection.innerHTML = `
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-gray-800">Selamat Datang, Admin!</h2>
+                    <p class="text-gray-600">Berikut adalah ringkasan sistem informasi desa Anda saat ini.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow-md p-6 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Total Berita</p>
+                            <p id="totalBerita" class="text-3xl font-bold text-gray-800">${stats.total_berita}</p>
+                        </div>
+                        <div class="text-4xl opacity-70">📰</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-md p-6 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Total Pengumuman</p>
+                            <p id="totalPengumuman" class="text-3xl font-bold text-gray-800">${stats.total_pengumuman}</p>
+                        </div>
+                        <div class="text-4xl opacity-70">📢</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-md p-6 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Total Produk Desa</p>
+                            <p id="totalProduk" class="text-3xl font-bold text-gray-800">${stats.total_produk}</p>
+                        </div>
+                         <div class="text-4xl opacity-70">🛒</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-md p-6 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Total Penduduk</p>
+                            <p id="totalPenduduk" class="text-3xl font-bold text-gray-800">${stats.total_penduduk}</p>
+                        </div>
+                         <div class="text-4xl opacity-70">👥</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1 space-y-8">
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Grafik Populasi</h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span class="font-medium text-blue-600">Laki-laki</span>
+                                        <span>${stats.laki_laki} <span class="text-gray-500">(${lakiPercent}%)</span></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-4">
+                                        <div class="bg-blue-500 h-4 rounded-full" style="width: ${lakiPercent}%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span class="font-medium text-pink-600">Perempuan</span>
+                                        <span>${stats.perempuan} <span class="text-gray-500">(${perempuanPercent}%)</span></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-4">
+                                        <div class="bg-pink-500 h-4 rounded-full" style="width: ${perempuanPercent}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Aksi Cepat</h4>
+                            <div class="space-y-3">
+                                <button onclick="showSection('berita')" class="w-full text-left bg-teal-50 hover:bg-teal-100 text-teal-800 font-semibold py-3 px-4 rounded-lg transition-colors">Tambah Berita Baru</button>
+                                <button onclick="showSection('pengumuman')" class="w-full text-left bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-semibold py-3 px-4 rounded-lg transition-colors">Tambah Pengumuman</button>
+                                <button onclick="showSection('belanja')" class="w-full text-left bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold py-3 px-4 rounded-lg transition-colors">Tambah Produk Desa</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+                         <h4 class="text-lg font-semibold text-gray-800 mb-2">Aktivitas Terbaru</h4>
+                         <div id="recentActivity">
+                            </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 4. Panggil fungsi untuk memuat konten dinamis di dalam dashboard
         loadRecentActivity();
     } catch (error) {
         console.error("Error loading dashboard stats:", error);
+        const dashboardSection = document.getElementById("dashboard-section");
+        if (dashboardSection) {
+            dashboardSection.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">Gagal memuat data dashboard.</div>`;
+        }
     }
 }
 
-function loadRecentActivity() {
-    const activities = [
-        { type: "Berita", action: "ditambahkan", time: "2 jam yang lalu" },
-        { type: "Pengumuman", action: "diperbarui", time: "1 hari yang lalu" },
-        { type: "Produk", action: "ditambahkan", time: "3 hari yang lalu" },
-    ];
+async function loadRecentActivity() {
+    try {
+        const response = await fetch("/api/aktivitas");
+        const activities = await response.json();
+        const activityContainer = document.getElementById("recentActivity");
 
-    const activityHtml = activities
-        .map(
-            (activity) => `
-        <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
-            <div>
-                <p class="text-sm font-medium text-gray-800">${activity.type} ${activity.action}</p>
-            </div>
-            <p class="text-xs text-gray-500">${activity.time}</p>
-        </div>
-    `
-        )
-        .join("");
+        if (!activityContainer) return;
 
-    document.getElementById("recentActivity").innerHTML = activityHtml;
+        if (activities.length === 0) {
+            activityContainer.innerHTML = `<div class="text-center py-4 text-sm text-gray-500">Belum ada aktivitas terbaru.</div>`;
+            return;
+        }
+
+        // Helper untuk memformat waktu relatif
+        const timeAgo = (date) => {
+            const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+            let interval = seconds / 31536000;
+            if (interval > 1) return Math.floor(interval) + " tahun lalu";
+            interval = seconds / 2592000;
+            if (interval > 1) return Math.floor(interval) + " bulan lalu";
+            interval = seconds / 86400;
+            if (interval > 1) return Math.floor(interval) + " hari lalu";
+            interval = seconds / 3600;
+            if (interval > 1) return Math.floor(interval) + " jam lalu";
+            interval = seconds / 60;
+            if (interval > 1) return Math.floor(interval) + " menit lalu";
+            return "Baru saja";
+        };
+
+        // Ikon untuk setiap tipe aktivitas
+        const icons = {
+            Berita: "📰",
+            Pengumuman: "📢",
+            "Produk Belanja": "🛒",
+            "Struktur Organisasi": "👥",
+            "Profil Desa": "🏛️",
+            "Data Penduduk": "📊",
+            default: "⚙️",
+        };
+
+        const activityHtml = activities
+            .slice(0, 6) // Batasi 6 aktivitas terbaru
+            .map((activity) => {
+                const icon = icons[activity.type] || icons["default"];
+                const detailText = activity.detail
+                    ? `<span class="text-gray-800 font-semibold">${activity.detail}</span>`
+                    : "";
+
+                return `
+                <div class="flex items-start py-3 border-b border-gray-100 last:border-b-0">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-lg mr-4">${icon}</div>
+                    <div class="flex-grow">
+                        <p class="text-sm text-gray-600">
+                            <strong>${
+                                activity.type
+                            }</strong> ${detailText} telah ${activity.action}.
+                        </p>
+                        <p class="text-xs text-gray-400 mt-1">${timeAgo(
+                            activity.timestamp
+                        )}</p>
+                    </div>
+                </div>
+            `;
+            })
+            .join("");
+
+        activityContainer.innerHTML = activityHtml;
+    } catch (error) {
+        console.error("Error loading recent activity:", error);
+        document.getElementById(
+            "recentActivity"
+        ).innerHTML = `<div class="text-center py-4 text-sm text-red-500">Gagal memuat aktivitas.</div>`;
+    }
 }
 
 // Home section
 async function loadHomeSection(element) {
     const response = await fetch("/api/home");
     const data = await response.json();
-    window.homeData = data; // Stocker les données pour les utiliser lors de l'édition
+    window.homeData = data; // Menyimpan data untuk digunakan oleh fungsi 'editHome()'
 
     element.innerHTML = `
-        <div class="bg-white rounded-lg shadow p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-lg font-semibold text-gray-800">Data Home</h3>
-                <div class="flex gap-2">
-                    <button onclick="editHome()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-teal-700">
-                        Edit Data
-                    </button>
+        <div class="space-y-8">
+            <div class="flex justify-between items-center pb-4 border-b border-gray-200">
+                 <h3 class="text-xl font-bold text-gray-800">Informasi Halaman Utama</h3>
+                 <button onclick="editHome()" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-teal-700 font-semibold shadow-md transition-transform transform hover:scale-105">
+                    Edit Data
+                 </button>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-8 bg-gray-50/50">
+                    <div class="flex-shrink-0">
+                        <img class="h-36 w-36 rounded-full object-cover shadow-xl border-4 border-white" src="${
+                            data.foto || "https://via.placeholder.com/150"
+                        }" alt="Foto Kepala Desa">
+                    </div>
+                    <div class="text-center sm:text-left">
+                        <p class="text-sm font-medium text-primary mb-1">Sambutan dari</p>
+                        <h4 class="text-2xl font-bold text-gray-800">${
+                            data.nama_kepala_desa || "Nama Belum Diisi"
+                        }</h4>
+                        <p class="text-md font-medium text-gray-500 mb-4">Kepala Desa</p>
+                        <blockquote class="text-gray-600 italic border-l-4 border-primary/50 pl-4 py-2">
+                            <p>"${
+                                data.sambutan ||
+                                "Sambutan dari kepala desa belum diisi. Silakan edit data untuk menambahkannya."
+                            }"</p>
+                        </blockquote>
+                    </div>
                 </div>
             </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <h4 class="font-medium text-gray-700 mb-2">Kepala Desa</h4>
-                    <p class="text-gray-600">${
-                        data.nama_kepala_desa || "Belum diisi"
-                    }</p>
-                </div>
-                
-                <div>
-                    <h4 class="font-medium text-gray-700 mb-2">Total Penduduk</h4>
-                    <p class="text-gray-600">${data.total_penduduk || "0"}</p>
-                </div>
-                
-                <div>
-                    <h4 class="font-medium text-gray-700 mb-2">Total KK</h4>
-                    <p class="text-gray-600">${data.total_kk || "0"}</p>
-                </div>
-                
-                <div>
-                    <h4 class="font-medium text-gray-700 mb-2">Laki-laki</h4>
-                    <p class="text-gray-600">${data.laki_laki || "0"}</p>
-                </div>
-                
-                <div>
-                    <h4 class="font-medium text-gray-700 mb-2">Perempuan</h4>
-                    <p class="text-gray-600">${data.perempuan || "0"}</p>
-                </div>
-                
-                <div>
-                    <h4 class="font-medium text-gray-700 mb-2">Foto Kepala Desa</h4>
-                    ${
-                        data.foto
-                            ? `<img src="${data.foto}" class="w-24 h-24 object-cover rounded-lg" alt="Foto Kepala Desa">`
-                            : '<p class="text-gray-500">Belum ada foto</p>'
-                    }
-                </div>
-                
-                <div class="md:col-span-2">
-                    <h4 class="font-medium text-gray-700 mb-2">Sambutan</h4>
-                    <p class="text-gray-600">${
-                        data.sambutan || "Belum diisi"
-                    }</p>
+
+            <div>
+                <h4 class="text-lg font-semibold text-gray-700 mb-4">Ringkasan Statistik Kependudukan</h4>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+                    <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl shadow-lg p-4 flex flex-col items-center justify-center text-center transform hover:-translate-y-1 transition-transform">
+                        <span class="text-4xl">👥</span>
+                        <p class="text-3xl font-bold mt-2">${
+                            data.total_penduduk || 0
+                        }</p>
+                        <p class="text-sm font-medium opacity-90">Total Penduduk</p>
+                    </div>
+                     <div class="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-xl shadow-lg p-4 flex flex-col items-center justify-center text-center transform hover:-translate-y-1 transition-transform">
+                        <span class="text-4xl">📇</span>
+                        <p class="text-3xl font-bold mt-2">${
+                            data.total_kk || 0
+                        }</p>
+                        <p class="text-sm font-medium opacity-90">Total KK</p>
+                    </div>
+                     <div class="bg-gradient-to-br from-sky-500 to-sky-600 text-white rounded-xl shadow-lg p-4 flex flex-col items-center justify-center text-center transform hover:-translate-y-1 transition-transform">
+                        <span class="text-4xl">👨</span>
+                        <p class="text-3xl font-bold mt-2">${
+                            data.laki_laki || 0
+                        }</p>
+                        <p class="text-sm font-medium opacity-90">Laki-laki</p>
+                    </div>
+                     <div class="bg-gradient-to-br from-pink-500 to-pink-600 text-white rounded-xl shadow-lg p-4 flex flex-col items-center justify-center text-center transform hover:-translate-y-1 transition-transform">
+                        <span class="text-4xl">👩</span>
+                        <p class="text-3xl font-bold mt-2">${
+                            data.perempuan || 0
+                        }</p>
+                        <p class="text-sm font-medium opacity-90">Perempuan</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -442,10 +662,12 @@ async function submitForm() {
 
         // Handle different form types
         if (
+            // TAMBAHKAN 'profilEditForm' PADA KONDISI INI
             form.id === "pengumumanEditForm" ||
-            form.id === "infografisEditForm"
+            form.id === "infografisEditForm" ||
+            form.id === "profilEditForm"
         ) {
-            // For pengumuman and infografis, use JSON since no file upload
+            // Untuk pengumuman, infografis, dan profil (visi/misi/sejarah), gunakan JSON
             const formData = new FormData(form);
             const jsonData = {};
             for (let [key, value] of formData.entries()) {
@@ -460,9 +682,9 @@ async function submitForm() {
             }
             requestBody = JSON.stringify(jsonData);
             headers["Content-Type"] = "application/json";
-            console.log(`Sending ${form.id} data:`, jsonData);
+            console.log(`Sending ${form.id} data as JSON:`, jsonData);
         } else {
-            // For other forms, use FormData (for file uploads)
+            // Untuk form lain yang mungkin punya file upload, gunakan FormData
             requestBody = new FormData(form);
         }
 
@@ -472,6 +694,18 @@ async function submitForm() {
             body: requestBody,
         });
 
+        // Pada server.js, method PUT untuk berita/belanja tidak ada,
+        // jadi kita tangani ini sebagai POST ke endpoint spesifik jika ada editId.
+        // Ini adalah asumsi dari kode frontend yang ada. Jika backend Anda mendukung PUT,
+        // baris ini bisa disesuaikan.
+        if (
+            editId &&
+            (form.id === "beritaEditForm" || form.id === "belanjaEditForm")
+        ) {
+            // Logika ini mungkin perlu disesuaikan jika server Anda mendukung PUT dengan FormData
+            // Namun berdasarkan struktur server.js, update dilakukan via POST ke /api/..:id
+        }
+
         const result = await response.json();
 
         if (result.success) {
@@ -479,7 +713,7 @@ async function submitForm() {
             loadSectionContent(currentSection);
             showNotification("Data berhasil disimpan", "success");
         } else {
-            showNotification("Gagal menyimpan data", "error");
+            showNotification(result.message || "Gagal menyimpan data", "error");
         }
     } catch (error) {
         console.error("Error submitting form:", error);
@@ -536,253 +770,345 @@ async function logout() {
 async function loadProfilSection(element) {
     const response = await fetch("/api/profil");
     const data = await response.json();
-    // Simpan data ke variabel global agar bisa diakses oleh fungsi edit
     window.profilData = data;
 
     element.innerHTML = `
-        <div class="space-y-6">
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Visi & Misi</h3>
-                    <button onclick="editVisiMisi()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-teal-700">
-                        Edit
+        <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8">
+            <div class="mb-6">
+                <div class="flex border-b border-gray-200">
+                    <button onclick="switchProfileTab('visiMisi')" class="profile-tab-button px-4 py-3 font-semibold rounded-t-lg -mb-px">
+                        Visi & Misi
                     </button>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 class="font-medium text-gray-700 mb-2">Visi</h4>
-                        <p class="text-gray-600">${
-                            data.visi || "Belum diisi"
-                        }</p>
-                    </div>
-                    
-                    <div>
-                        <h4 class="font-medium text-gray-700 mb-2">Misi</h4>
-                        <p class="text-gray-600">${
-                            data.misi || "Belum diisi"
-                        }</p>
-                    </div>
+                    <button onclick="switchProfileTab('sejarah')" class="profile-tab-button px-4 py-3 font-semibold rounded-t-lg -mb-px">
+                        Sejarah Desa
+                    </button>
+                    <button onclick="switchProfileTab('organisasi')" class="profile-tab-button px-4 py-3 font-semibold rounded-t-lg -mb-px">
+                        Struktur Organisasi
+                    </button>
                 </div>
             </div>
-            
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Sejarah Desa</h3>
-                    <button onclick="editSejarah()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-teal-700">
-                        Edit
-                    </button>
-                </div>
-                
-                <div>
-                    <p class="text-gray-600">${
-                        data.sejarah || "Belum diisi"
-                    }</p>
-                </div>
-            </div>
-            
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-lg font-semibold text-gray-800">Struktur Organisasi Desa</h3>
-                    <button onclick="addOrganisasi()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-teal-700">
-                        + Tambah Organisasi
-                    </button>
-                </div>
-                
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left">
-                                    <input type="checkbox" id="selectAllOrganisasi" onchange="selectAllOrganisasi(this)">
-                                </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gambar Struktur</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Organisasi</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Periode</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            ${
-                                // DIASUMSIKAN data.organisasi sekarang adalah array: [{id, nama, periode, gambar_struktur}, ...]
-                                (data.organisasi || [])
-                                    .map(
-                                        (item) => `
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <input type="checkbox" name="organisasiCheck" value="${
-                                            item.id
-                                        }" onchange="updateDeleteOrganisasiButton()">
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <img src="${
-                                            item.gambar_struktur ||
-                                            "https://via.placeholder.com/100"
-                                        }" class="w-16 h-16 object-cover rounded-lg" alt="Struktur ${
-                                            item.nama
-                                        }">
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="text-sm font-medium text-gray-900">${
-                                            item.nama || "N/A"
-                                        }</div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        ${item.periode || "N/A"}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <button onclick="editOrganisasi(${
-                                            item.id
-                                        })" class="text-indigo-600 hover:text-indigo-900 mr-2">Edit</button>
-                                        <button onclick="deleteOrganisasi(${
-                                            item.id
-                                        })" class="text-red-600 hover:text-red-900">Hapus</button>
-                                    </td>
-                                </tr>
-                                `
-                                    )
-                                    .join("")
-                            }
-                        </tbody>
-                    </table>
-                     ${
-                         (data.organisasi || []).length === 0
-                             ? '<div class="text-center py-8 text-gray-500">Belum ada data organisasi</div>'
-                             : ""
-                     }
+
+            <div>
+                <div id="visiMisi-pane" class="profile-tab-content">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-gray-800">Visi & Misi Desa</h3>
+                        <button onclick="editVisiMisi()" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-teal-700 font-semibold shadow-md transition-transform transform hover:scale-105">Edit Visi & Misi</button>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                            <h4 class="text-lg font-semibold text-blue-800 mb-2 flex items-center">
+                                <span class="text-2xl mr-3">🎯</span> Visi
+                            </h4>
+                            <p class="text-gray-700">${
+                                data.visi || "Visi belum diisi."
+                            }</p>
+                        </div>
+                        <div class="bg-green-50 p-6 rounded-lg border border-green-200">
+                            <h4 class="text-lg font-semibold text-green-800 mb-2 flex items-center">
+                                <span class="text-2xl mr-3">🗺️</span> Misi
+                            </h4>
+                            <p class="text-gray-700 whitespace-pre-line">${
+                                data.misi || "Misi belum diisi."
+                            }</p>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="mt-4 flex justify-between items-center">
-                    <button onclick="deleteSelectedOrganisasi()" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50" disabled id="deleteSelectedOrganisasiBtn">
-                        Hapus Terpilih
-                    </button>
+                <div id="sejarah-pane" class="profile-tab-content hidden">
+                     <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-gray-800">Sejarah Desa</h3>
+                        <button onclick="editSejarah()" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-teal-700 font-semibold shadow-md transition-transform transform hover:scale-105">Edit Sejarah</button>
+                    </div>
+                    <div class="prose max-w-none text-gray-700">
+                        <p>${data.sejarah || "Sejarah desa belum diisi."}</p>
+                    </div>
+                </div>
+
+                <div id="organisasi-pane" class="profile-tab-content hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-gray-800">Daftar Struktur Organisasi</h3>
+                        <button onclick="addOrganisasi()" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-teal-700 font-semibold shadow-md transition-transform transform hover:scale-105">+ Tambah Organisasi</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-6 py-3 text-left w-10"><input type="checkbox" id="selectAllOrganisasi" onchange="selectAllOrganisasi(this)"></th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Gambar</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Nama Organisasi</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Periode</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${(data.organisasi || [])
+                                    .map(
+                                        (item) => `
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4"><input type="checkbox" name="organisasiCheck" value="${
+                                            item.id
+                                        }" onchange="updateDeleteOrganisasiButton()"></td>
+                                        <td class="px-6 py-4"><img src="${
+                                            item.gambar_struktur ||
+                                            "https://via.placeholder.com/100"
+                                        }" class="w-16 h-16 object-cover rounded-md" alt="Struktur ${
+                                            item.nama
+                                        }"></td>
+                                        <td class="px-6 py-4 font-medium text-gray-900">${
+                                            item.nama || "N/A"
+                                        }</td>
+                                        <td class="px-6 py-4 text-sm text-gray-700">${
+                                            item.periode || "N/A"
+                                        }</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button onclick="editOrganisasi(${
+                                                item.id
+                                            })" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
+                                            <button onclick="deleteOrganisasi(${
+                                                item.id
+                                            })" class="text-red-600 hover:text-red-900">Hapus</button>
+                                        </td>
+                                    </tr>`
+                                    )
+                                    .join("")}
+                            </tbody>
+                        </table>
+                        ${
+                            (data.organisasi || []).length === 0
+                                ? '<div class="text-center py-8 text-gray-500">Belum ada data organisasi</div>'
+                                : ""
+                        }
+                    </div>
+                    <div class="mt-4">
+                        <button onclick="deleteSelectedOrganisasi()" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50" disabled id="deleteSelectedOrganisasiBtn">Hapus Terpilih</button>
+                    </div>
                 </div>
             </div>
         </div>
     `;
-}
 
+    // Secara otomatis aktifkan tab pertama saat halaman dimuat
+    setTimeout(() => switchProfileTab("visiMisi"), 0);
+}
 async function loadInfografisSection(element) {
     const response = await fetch("/api/infografis");
     const data = await response.json();
-    window.infografisData = data; // Simpan data untuk digunakan saat edit
+    window.infografisData = data;
+
+    const totalPendapatan = (data.apbdesa?.pendapatan || []).reduce(
+        (sum, item) => sum + (item.nominal || 0),
+        0
+    );
+    const totalBelanja = (data.apbdesa?.belanja || []).reduce(
+        (sum, item) => sum + (item.nominal || 0),
+        0
+    );
+
+    const createStatList = (title, dataObject) => {
+        if (!dataObject || Object.keys(dataObject).length === 0) {
+            return `<div><h5 class="font-semibold text-gray-700 mb-2">${title}</h5><p class="text-sm text-gray-500">Belum ada data.</p></div>`;
+        }
+        return `
+            <div>
+                <h5 class="font-semibold text-gray-700 mb-2">${title}</h5>
+                <ul class="space-y-1 text-sm text-gray-600 list-disc list-inside">
+                    ${Object.entries(dataObject)
+                        .map(
+                            ([key, value]) =>
+                                `<li><strong>${value}</strong> jiwa - ${key}</li>`
+                        )
+                        .join("")}
+                </ul>
+            </div>
+        `;
+    };
 
     element.innerHTML = `
-        <div class="space-y-6">
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-lg font-semibold text-gray-800">Statistik Penduduk</h3>
-                    <button onclick="editStatistikPenduduk()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-teal-700">
-                        Edit
-                    </button>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div class="text-center p-4 bg-blue-50 rounded-lg">
-                        <div class="text-2xl font-bold text-blue-600">${
-                            data.statistik_penduduk?.total_penduduk || 0
-                        }</div>
-                        <div class="text-sm text-gray-600">Total Penduduk</div>
-                    </div>
-                    <div class="text-center p-4 bg-green-50 rounded-lg">
-                        <div class="text-2xl font-bold text-green-600">${
-                            data.statistik_penduduk?.total_kk || 0
-                        }</div>
-                        <div class="text-sm text-gray-600">Total KK</div>
-                    </div>
-                    <div class="text-center p-4 bg-purple-50 rounded-lg">
-                        <div class="text-2xl font-bold text-purple-600">${
-                            data.statistik_penduduk?.laki_laki || 0
-                        }</div>
-                        <div class="text-sm text-gray-600">Laki-laki</div>
-                    </div>
-                    <div class="text-center p-4 bg-pink-50 rounded-lg">
-                        <div class="text-2xl font-bold text-pink-600">${
-                            data.statistik_penduduk?.perempuan || 0
-                        }</div>
-                        <div class="text-sm text-gray-600">Perempuan</div>
-                    </div>
+         <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8">
+            <div class="mb-6">
+                <div class="flex border-b border-gray-200">
+                    <button onclick="switchInfografisTab('statistik')" class="infografis-tab-button px-4 py-3 font-semibold rounded-t-lg -mb-px">Statistik Penduduk</button>
+                    <button onclick="switchInfografisTab('apbdesa')" class="infografis-tab-button px-4 py-3 font-semibold rounded-t-lg -mb-px">APB Desa</button>
+                    <button onclick="switchInfografisTab('bansos')" class="infografis-tab-button px-4 py-3 font-semibold rounded-t-lg -mb-px">Bantuan Sosial</button>
                 </div>
             </div>
-            
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-lg font-semibold text-gray-800">APB Desa</h3>
-                    <button onclick="editAPBDesa()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-teal-700">
-                        Edit
-                    </button>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 class="font-medium text-gray-700 mb-3">Pendapatan</h4>
-                        <div class="space-y-2">
-                            ${
-                                (data.apbdesa?.pendapatan || [])
-                                    .map(
-                                        (item) => `
-                                <div class="flex justify-between text-sm">
-                                    <span>${item.jenis || "-"}</span>
-                                    <span class="font-medium">Rp ${(
-                                        item.nominal || 0
-                                    ).toLocaleString("id-ID")}</span>
-                                </div>
-                            `
-                                    )
-                                    .join("") ||
-                                '<div class="text-gray-500 text-sm">Belum ada data</div>'
-                            }
-                        </div>
+            <div>
+                <div id="statistik-pane" class="infografis-tab-content">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-gray-800">Statistik Penduduk</h3>
+                        <button onclick="editStatistikPenduduk()" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-teal-700 font-semibold shadow-md">Edit Data</button>
                     </div>
-                    <div>
-                        <h4 class="font-medium text-gray-700 mb-3">Belanja</h4>
-                        <div class="space-y-2">
-                            ${
-                                (data.apbdesa?.belanja || [])
-                                    .map(
-                                        (item) => `
-                                <div class="flex justify-between text-sm">
-                                    <span>${item.jenis || "-"}</span>
-                                    <span class="font-medium">Rp ${(
-                                        item.nominal || 0
-                                    ).toLocaleString("id-ID")}</span>
-                                </div>
-                            `
-                                    )
-                                    .join("") ||
-                                '<div class="text-gray-500 text-sm">Belum ada data</div>'
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-lg font-semibold text-gray-800">Bantuan Sosial</h3>
-                    <button onclick="editBantuanSosial()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-teal-700">
-                        Edit
-                    </button>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    ${
-                        Object.entries(data.bantuan_sosial || {})
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        ${[
+                            {
+                                label: "Total Penduduk",
+                                value:
+                                    data.statistik_penduduk?.total_penduduk ||
+                                    0,
+                                icon: "👥",
+                                color: "blue",
+                            },
+                            {
+                                label: "Total KK",
+                                value: data.statistik_penduduk?.total_kk || 0,
+                                icon: "📇",
+                                color: "teal",
+                            },
+                            {
+                                label: "Laki-laki",
+                                value: data.statistik_penduduk?.laki_laki || 0,
+                                icon: "👨",
+                                color: "sky",
+                            },
+                            {
+                                label: "Perempuan",
+                                value: data.statistik_penduduk?.perempuan || 0,
+                                icon: "👩",
+                                color: "pink",
+                            },
+                        ]
                             .map(
-                                ([jenis, jumlah]) => `
-                        <div class="text-center p-4 bg-yellow-50 rounded-lg">
-                            <div class="text-xl font-bold text-yellow-600">${jumlah}</div>
-                            <div class="text-sm text-gray-600">${jenis}</div>
-                        </div>
-                    `
+                                (stat) => `
+                            <div class="bg-gradient-to-br from-${stat.color}-100 to-${stat.color}-200 border border-${stat.color}-200 text-${stat.color}-800 rounded-xl shadow-lg p-4 flex flex-col items-center justify-center text-center">
+                                <span class="text-4xl">${stat.icon}</span>
+                                <p class="text-3xl font-bold mt-2">${stat.value}</p>
+                                <p class="text-sm font-medium">${stat.label}</p>
+                            </div>`
                             )
-                            .join("") ||
-                        '<div class="col-span-3 text-center text-gray-500">Belum ada data bantuan sosial</div>'
-                    }
+                            .join("")}
+                    </div>
+                    <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 border-t pt-6">
+                        ${createStatList(
+                            "Berdasarkan Dusun",
+                            data.berdasarkan_dusun
+                        )}
+                        ${createStatList(
+                            "Berdasarkan Pendidikan",
+                            data.berdasarkan_pendidikan
+                        )}
+                        ${createStatList(
+                            "Berdasarkan Pekerjaan",
+                            data.berdasarkan_pekerjaan
+                        )}
+                    </div>
+                </div>
+
+                <div id="apbdesa-pane" class="infografis-tab-content hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-gray-800">Anggaran Pendapatan & Belanja Desa</h3>
+                        <button onclick="editAPBDesa()" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-teal-700 font-semibold shadow-md">Edit Data</button>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="space-y-4">
+                            <h4 class="text-lg font-semibold text-gray-700">Pendapatan</h4>
+                            <div class="bg-gray-50 p-4 rounded-lg space-y-3">
+                                ${
+                                    (data.apbdesa?.pendapatan || [])
+                                        .map((item) => {
+                                            const percentage =
+                                                totalPendapatan > 0
+                                                    ? (
+                                                          ((item.nominal || 0) /
+                                                              totalPendapatan) *
+                                                          100
+                                                      ).toFixed(1)
+                                                    : 0;
+                                            return `
+                                        <div>
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="font-medium text-gray-800">${
+                                                    item.jenis
+                                                }</span>
+                                                <span class="text-gray-600">Rp ${(
+                                                    item.nominal || 0
+                                                ).toLocaleString(
+                                                    "id-ID"
+                                                )}</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                                <div class="bg-green-500 h-2.5 rounded-full" style="width: ${percentage}%"></div>
+                                            </div>
+                                        </div>
+                                    `;
+                                        })
+                                        .join("") ||
+                                    '<p class="text-sm text-gray-500">Belum ada data pendapatan.</p>'
+                                }
+                            </div>
+                            <div class="text-right font-bold text-lg text-gray-800">Total: Rp ${totalPendapatan.toLocaleString(
+                                "id-ID"
+                            )}</div>
+                        </div>
+                        <div class="space-y-4">
+                            <h4 class="text-lg font-semibold text-gray-700">Belanja</h4>
+                            <div class="bg-gray-50 p-4 rounded-lg space-y-3">
+                                ${
+                                    (data.apbdesa?.belanja || [])
+                                        .map((item) => {
+                                            const percentage =
+                                                totalBelanja > 0
+                                                    ? (
+                                                          ((item.nominal || 0) /
+                                                              totalBelanja) *
+                                                          100
+                                                      ).toFixed(1)
+                                                    : 0;
+                                            return `
+                                        <div>
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="font-medium text-gray-800">${
+                                                    item.jenis
+                                                }</span>
+                                                <span class="text-gray-600">Rp ${(
+                                                    item.nominal || 0
+                                                ).toLocaleString(
+                                                    "id-ID"
+                                                )}</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                                <div class="bg-red-500 h-2.5 rounded-full" style="width: ${percentage}%"></div>
+                                            </div>
+                                        </div>
+                                    `;
+                                        })
+                                        .join("") ||
+                                    '<p class="text-sm text-gray-500">Belum ada data belanja.</p>'
+                                }
+                            </div>
+                            <div class="text-right font-bold text-lg text-gray-800">Total: Rp ${totalBelanja.toLocaleString(
+                                "id-ID"
+                            )}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="bansos-pane" class="infografis-tab-content hidden">
+                     <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-gray-800">Penerima Bantuan Sosial</h3>
+                        <button onclick="editBantuanSosial()" class="bg-primary text-white px-5 py-2 rounded-lg hover:bg-teal-700 font-semibold shadow-md">Edit Data</button>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        ${
+                            Object.entries(data.bantuan_sosial || {}).length > 0
+                                ? Object.entries(data.bantuan_sosial || {})
+                                      .map(
+                                          ([jenis, jumlah]) => `
+                                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center transform hover:-translate-y-1 transition-transform">
+                                    <p class="text-3xl font-bold text-yellow-800">${jumlah}</p>
+                                    <p class="text-sm font-medium text-yellow-700 mt-1">${jenis}</p>
+                                </div>
+                            `
+                                      )
+                                      .join("")
+                                : '<p class="col-span-full text-center text-gray-500">Belum ada data bantuan sosial.</p>'
+                        }
+                    </div>
                 </div>
             </div>
         </div>
     `;
+
+    setTimeout(() => switchInfografisTab("statistik"), 0);
 }
 
 async function loadBeritaSection(element) {
@@ -1080,63 +1406,100 @@ async function loadBelanjaSection(element) {
 
 async function loadImportSection(element) {
     element.innerHTML = `
-        <div class="bg-white rounded-lg shadow p-6">
-            <div class="mb-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">Impor Data Penduduk dari Excel</h3>
-                <p class="text-sm text-gray-600">Upload file Excel yang berisi data penduduk untuk otomatis memperbarui statistik.</p>
+        <div class="bg-white rounded-lg shadow-lg p-6 sm:p-8">
+            <div class="mb-6 border-b border-gray-200 pb-4">
+                <h3 class="text-xl font-bold text-gray-800">Impor Data Penduduk dari Excel</h3>
+                <p class="text-sm text-gray-600 mt-1">Perbarui statistik kependudukan secara massal dari file Excel.</p>
             </div>
-            
-            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <div class="mb-4">
-                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-                
-                <form id="importForm" enctype="multipart/form-data" class="space-y-4">
-                    <div>
-                        <input type="file" name="excel" accept=".xlsx,.xls" required 
-                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-teal-700">
+
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                <div class="lg:col-span-3">
+                    <h4 class="text-lg font-semibold text-gray-700 mb-4">Panduan Impor 📝</h4>
+                    <div class="space-y-4 text-sm text-gray-700">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow">1</div>
+                            <div class="ml-4">
+                                <p class="font-medium text-gray-900">Unduh Template</p>
+                                <p>Gunakan template yang kami sediakan untuk memastikan format kolom sesuai dan proses impor berjalan lancar.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                             <div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow">2</div>
+                            <div class="ml-4">
+                                <p class="font-medium text-gray-900">Isi Data Penduduk</p>
+                                <p>Isi data setiap penduduk per baris. Pastikan nama kolom pada template tidak diubah.</p>
+                            </div>
+                        </div>
+                         <div class="flex items-start">
+                             <div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow">3</div>
+                            <div class="ml-4">
+                                <p class="font-medium text-gray-900">Unggah & Proses</p>
+                                <p>Pilih file yang sudah diisi pada form di samping, lalu sistem akan menghitung statistiknya untuk Anda review.</p>
+                            </div>
+                        </div>
                     </div>
-                    
-                    <button type="submit" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-teal-700">
-                        Upload dan Proses
-                    </button>
-                </form>
-            </div>
-            
-            <div id="previewData" class="mt-6 hidden">
-                <h4 class="text-md font-semibold text-gray-800 mb-4">Preview Data yang akan Diimpor</h4>
-                <div id="previewContent" class="bg-gray-50 rounded-lg p-4"></div>
-                
-                <div class="mt-4 flex justify-end space-x-2">
-                    <button onclick="cancelImport()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Batal</button>
-                    <button onclick="applyImport()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">Apply Import</button>
+
+                    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p class="font-semibold text-blue-800 mb-2">Kolom yang Diperlukan pada Template:</p>
+                        <ul class="list-disc list-inside text-sm text-blue-700 space-y-1">
+                            <li><strong>nama</strong> (Nama lengkap penduduk)</li>
+                            <li><strong>No. Kartu Keluarga</strong> (Untuk menghitung jumlah KK unik)</li>
+                            <li><strong>jenis kelamin</strong> (Isi dengan "Laki-laki" atau "Perempuan")</li>
+                            <li><strong>dusun</strong> (Nama dusun tempat tinggal)</li>
+                            <li><strong>pendidikan</strong> (Pendidikan terakhir)</li>
+                            <li><strong>pekerjaan</strong> (Pekerjaan saat ini)</li>
+                            <li><strong>penerima bantuan sosial</strong> (Contoh: "PKH", "BPNT". Kosongkan jika tidak ada)</li>
+                        </ul>
+                    </div>
+                     <div class="mt-6">
+                        <a href="/templates/template_penduduk.xlsx" download class="inline-flex items-center bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 font-semibold shadow transition-transform transform hover:scale-105">
+                           <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M13 8V2H7v6H2l8 8 8-8h-5zM0 18h20v2H0v-2z"/></svg>
+                           Unduh Template Excel
+                        </a>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="mt-6">
-                <h4 class="text-md font-semibold text-gray-800 mb-2">Format File Excel yang Diharapkan</h4>
-                <div class="bg-blue-50 rounded-lg p-4 text-sm text-blue-800">
-                    <p class="mb-2"><strong>Kolom yang diperlukan:</strong></p>
-                    <ul class="list-disc list-inside space-y-1">
-                        <li>Total Penduduk</li>
-                        <li>Total KK</li>
-                        <li>Laki-laki</li>
-                        <li>Perempuan</li>
-                        <li>Data berdasarkan Dusun, Pendidikan, Pekerjaan</li>
-                        <li>Data Bantuan Sosial</li>
-                    </ul>
+
+                <div class="lg:col-span-2">
+                     <h4 class="text-lg font-semibold text-gray-700 mb-4">Area Unggah 📤</h4>
+                     <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-gray-50 flex flex-col justify-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <form id="importForm" enctype="multipart/form-data" class="mt-4 space-y-4">
+                            <div>
+                                <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-primary hover:text-teal-700 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary p-2">
+                                    <span>Pilih file Excel</span>
+                                    <input id="file-upload" name="excel" type="file" class="sr-only" accept=".xlsx,.xls" required>
+                                </label>
+                                <p id="file-name-display" class="text-xs text-gray-500 mt-2 truncate">Belum ada file dipilih</p>
+                            </div>
+                            <button type="submit" class="w-full bg-primary text-white px-6 py-2 rounded-lg hover:bg-teal-700 font-semibold shadow">
+                                Upload dan Proses
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
     `;
 
-    // Add form submit handler
+    // Tambahkan event listener untuk form dan untuk menampilkan nama file yang dipilih
     setTimeout(() => {
-        document
-            .getElementById("importForm")
-            .addEventListener("submit", handleImport);
+        const importForm = document.getElementById("importForm");
+        const fileInput = document.getElementById("file-upload");
+        const fileNameDisplay = document.getElementById("file-name-display");
+
+        if (importForm) {
+            importForm.addEventListener("submit", handleImport);
+        }
+        if (fileInput && fileNameDisplay) {
+            fileInput.addEventListener("change", () => {
+                fileNameDisplay.textContent =
+                    fileInput.files.length > 0
+                        ? fileInput.files[0].name
+                        : "Belum ada file dipilih";
+            });
+        }
     }, 100);
 }
 
@@ -1484,6 +1847,22 @@ function createProdukEditForm(item = null) {
 }
 
 // Import functions
+function setupImportPopupButtons() {
+    const popup = window.currentPopup;
+    if (!popup) return;
+
+    const buttonContainer = popup.querySelector(".flex.space-x-2");
+    buttonContainer.innerHTML = `
+        <button onclick="cancelImportAndClosePopup()" class="px-4 py-2 text-gray-600 hover:text-gray-800 rounded-lg">Batal</button>
+        <button onclick="applyImport()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">Terapkan Perubahan</button>
+    `;
+}
+
+function cancelImportAndClosePopup() {
+    closePopup();
+    cancelImport(); // Memanggil fungsi cancelImport yang sudah ada
+}
+
 let importData = null;
 
 async function handleImport(e) {
@@ -1516,88 +1895,166 @@ async function handleImport(e) {
 }
 
 function showPreview(data) {
-    const previewSection = document.getElementById("previewData");
-    const previewContent = document.getElementById("previewContent");
+    // Helper function untuk membuat bagian form yang bisa diedit
+    const createEditableGroup = (title, dataObject, namePrefix) => {
+        let html = `<h5 class="font-medium text-gray-700 mb-2 mt-4">${title}</h5>`;
+        if (Object.keys(dataObject).length === 0) {
+            html += `<p class="text-sm text-gray-500">Tidak ada data terdeteksi.</p>`;
+        } else {
+            html += Object.entries(dataObject)
+                .map(
+                    ([key, value]) => `
+                <div class="grid grid-cols-2 gap-x-4 gap-y-2 items-center mb-2">
+                    <input type="text" name="${namePrefix}_keys[]" value="${key}" class="w-full px-3 py-1 border border-gray-200 bg-gray-50 rounded-md text-sm">
+                    <input type="number" name="${namePrefix}_values[]" value="${value}" class="w-full px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+            `
+                )
+                .join("");
+        }
+        return html;
+    };
 
-    previewContent.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <h5 class="font-medium text-gray-700 mb-2">Statistik Dasar</h5>
-                <ul class="space-y-1 text-sm">
-                    <li>Total Penduduk: <span class="font-medium">${
-                        data.total_penduduk || 0
-                    }</span></li>
-                    <li>Total KK: <span class="font-medium">${
-                        data.total_kk || 0
-                    }</span></li>
-                    <li>Laki-laki: <span class="font-medium">${
-                        data.laki_laki || 0
-                    }</span></li>
-                    <li>Perempuan: <span class="font-medium">${
-                        data.perempuan || 0
-                    }</span></li>
-                </ul>
+    const formHTML = `
+        <form id="previewForm">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                <div>
+                    <h5 class="font-medium text-gray-700 mb-2">Statistik Dasar</h5>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="text-sm text-gray-600">Total Penduduk</label>
+                            <input type="number" name="total_penduduk" value="${
+                                data.total_penduduk || 0
+                            }" class="w-1/3 px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                         <div class="flex items-center justify-between">
+                            <label class="text-sm text-gray-600">Total Kartu Keluarga (KK)</label>
+                            <input type="number" name="total_kk" value="${
+                                data.total_kk || 0
+                            }" class="w-1/3 px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <label class="text-sm text-gray-600">Laki-laki</label>
+                            <input type="number" name="laki_laki" value="${
+                                data.laki_laki || 0
+                            }" class="w-1/3 px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <label class="text-sm text-gray-600">Perempuan</label>
+                            <input type="number" name="perempuan" value="${
+                                data.perempuan || 0
+                            }" class="w-1/3 px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                    </div>
+                     ${createEditableGroup(
+                         "Data Bantuan Sosial",
+                         data.bantuan_sosial,
+                         "bansos"
+                     )}
+                </div>
+
+                <div>
+                    ${createEditableGroup(
+                        "Data Berdasarkan Dusun",
+                        data.berdasarkan_dusun,
+                        "dusun"
+                    )}
+                    ${createEditableGroup(
+                        "Data Berdasarkan Pendidikan",
+                        data.berdasarkan_pendidikan,
+                        "pendidikan"
+                    )}
+                    ${createEditableGroup(
+                        "Data Berdasarkan Pekerjaan",
+                        data.berdasarkan_pekerjaan,
+                        "pekerjaan"
+                    )}
+                </div>
             </div>
-            
-            <div>
-                <h5 class="font-medium text-gray-700 mb-2">Data Tambahan</h5>
-                <ul class="space-y-1 text-sm">
-                    <li>Data Dusun: <span class="font-medium">${
-                        Object.keys(data.berdasarkan_dusun || {}).length
-                    } item</span></li>
-                    <li>Data Pendidikan: <span class="font-medium">${
-                        Object.keys(data.berdasarkan_pendidikan || {}).length
-                    } item</span></li>
-                    <li>Data Pekerjaan: <span class="font-medium">${
-                        Object.keys(data.berdasarkan_pekerjaan || {}).length
-                    } item</span></li>
-                    <li>Data Bansos: <span class="font-medium">${
-                        Object.keys(data.bansos || {}).length
-                    } item</span></li>
-                </ul>
-            </div>
-        </div>
+        </form>
     `;
 
-    previewSection.classList.remove("hidden");
-}
-
-function cancelImport() {
-    document.getElementById("previewData").classList.add("hidden");
-    document.getElementById("importForm").reset();
-    importData = null;
+    // Tampilkan form di dalam popup
+    showFullscreenPopup("Preview & Edit Hasil Perhitungan", formHTML);
+    // Atur tombol khusus untuk popup ini
+    setupImportPopupButtons();
 }
 
 async function applyImport() {
-    if (!importData) return;
+    const form = document.getElementById("previewForm");
+    if (!form) return;
 
     try {
         showLoading();
+        const formData = new FormData(form);
+        const dataToApply = {
+            statistik_penduduk: {
+                total_penduduk: parseInt(formData.get("total_penduduk")),
+                total_kk: parseInt(formData.get("total_kk")),
+                laki_laki: parseInt(formData.get("laki_laki")),
+                perempuan: parseInt(formData.get("perempuan")),
+            },
+            berdasarkan_dusun: {},
+            berdasarkan_pendidikan: {},
+            berdasarkan_pekerjaan: {},
+            bantuan_sosial: {},
+        };
+
+        const buildObjectFromForm = (prefix) => {
+            const obj = {};
+            const keys = formData.getAll(`${prefix}_keys[]`);
+            const values = formData.getAll(`${prefix}_values[]`);
+            keys.forEach((key, index) => {
+                if (key) {
+                    obj[key] = parseInt(values[index]) || 0;
+                }
+            });
+            return obj;
+        };
+
+        dataToApply.berdasarkan_dusun = buildObjectFromForm("dusun");
+        dataToApply.berdasarkan_pendidikan = buildObjectFromForm("pendidikan");
+        dataToApply.berdasarkan_pekerjaan = buildObjectFromForm("pekerjaan");
+        dataToApply.bantuan_sosial = buildObjectFromForm("bansos");
 
         const response = await fetch("/api/apply-import", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(importData),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(dataToApply),
         });
 
         const result = await response.json();
 
         if (result.success) {
-            showNotification("Data berhasil diimpor", "success");
-            cancelImport();
-            // Refresh dashboard stats
-            loadDashboardStats();
+            closePopup(); // <-- Tutup popup setelah berhasil
+            cancelImport(); // <-- Reset form upload & data
+            showNotification("Data berhasil diimpor dan diterapkan", "success");
+            loadDashboardStats(); // Muat ulang statistik di dashboard utama
         } else {
-            showNotification("Gagal mengimpor data", "error");
+            showNotification("Gagal menerapkan data impor", "error");
         }
     } catch (error) {
         console.error("Error applying import:", error);
-        showNotification("Terjadi kesalahan", "error");
+        showNotification("Terjadi kesalahan saat menerapkan data", "error");
     } finally {
         hideLoading();
     }
+}
+
+function cancelImport() {
+    // Cari form upload utama di halaman
+    const importForm = document.getElementById("importForm");
+    if (importForm) {
+        importForm.reset(); // Reset pilihan file pada form
+
+        // Kembalikan juga teks nama file ke default
+        const fileNameDisplay = document.getElementById("file-name-display");
+        if (fileNameDisplay) {
+            fileNameDisplay.textContent = "Belum ada file dipilih";
+        }
+    }
+    // Hapus data impor yang tersimpan sementara
+    importData = null;
 }
 
 // Infografis functions
@@ -1615,22 +2072,45 @@ function editStatistikPenduduk() {
 function createStatistikPendudukForm() {
     return `
         <form id="infografisEditForm">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-8">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Total Penduduk</label>
-                    <input type="number" name="total_penduduk" id="infografis_total_penduduk" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                    <h4 class="font-medium text-gray-800 mb-3">Statistik Utama</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Total Penduduk</label>
+                            <input type="number" name="total_penduduk" id="infografis_total_penduduk" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Total KK</label>
+                            <input type="number" name="total_kk" id="infografis_total_kk" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Laki-laki</label>
+                            <input type="number" name="laki_laki" id="infografis_laki_laki" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Perempuan</label>
+                            <input type="number" name="perempuan" id="infografis_perempuan" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Total KK</label>
-                    <input type="number" name="total_kk" id="infografis_total_kk" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Laki-laki</label>
-                    <input type="number" name="laki_laki" id="infografis_laki_laki" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Perempuan</label>
-                    <input type="number" name="perempuan" id="infografis_perempuan" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+
+                <div class="border-t pt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div>
+                        <h4 class="font-medium text-gray-800 mb-3">Berdasarkan Dusun</h4>
+                        <div id="dusunContainer" class="space-y-2"></div>
+                        <button type="button" onclick="addDusunRow()" class="mt-3 text-sm text-primary hover:text-teal-700 font-semibold">+ Tambah Dusun</button>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-gray-800 mb-3">Berdasarkan Pendidikan</h4>
+                        <div id="pendidikanContainer" class="space-y-2"></div>
+                        <button type="button" onclick="addPendidikanRow()" class="mt-3 text-sm text-primary hover:text-teal-700 font-semibold">+ Tambah Pendidikan</button>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-gray-800 mb-3">Berdasarkan Pekerjaan</h4>
+                        <div id="pekerjaanContainer" class="space-y-2"></div>
+                        <button type="button" onclick="addPekerjaanRow()" class="mt-3 text-sm text-primary hover:text-teal-700 font-semibold">+ Tambah Pekerjaan</button>
+                    </div>
                 </div>
             </div>
         </form>
@@ -1646,42 +2126,58 @@ function editAPBDesa() {
 function createAPBDesaForm() {
     return `
         <form id="infografisEditForm">
-            <div class="space-y-6">
+            <input type="hidden" name="apbdesa_update" value="true">
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div>
-                    <h4 class="font-medium text-gray-700 mb-3">Pendapatan</h4>
-                    <div id="pendapatanContainer"></div>
-                    <button type="button" onclick="addPendapatanRow()" class="mt-2 text-sm text-primary hover:text-teal-700">+ Tambah Baris Pendapatan</button>
+                    <h4 class="font-medium text-gray-800 mb-3">Pendapatan</h4>
+                    <div id="pendapatanContainer" class="space-y-2"></div>
+                    <button type="button" onclick="addPendapatanRow()" class="mt-3 text-sm text-primary hover:text-teal-700 font-semibold">+ Tambah Baris Pendapatan</button>
                 </div>
                 <div>
-                    <h4 class="font-medium text-gray-700 mb-3">Belanja</h4>
-                    <div id="belanjaContainer"></div>
-                    <button type="button" onclick="addBelanjaRow()" class="mt-2 text-sm text-primary hover:text-teal-700">+ Tambah Baris Belanja</button>
+                    <h4 class="font-medium text-gray-800 mb-3">Belanja</h4>
+                    <div id="belanjaContainer" class="space-y-2"></div>
+                    <button type="button" onclick="addBelanjaRow()" class="mt-3 text-sm text-primary hover:text-teal-700 font-semibold">+ Tambah Baris Belanja</button>
                 </div>
             </div>
         </form>
     `;
 }
 
-function addPendapatanRow(item = { jenis: "", nominal: "" }) {
+function addPendapatanRow(item = { jenis: "", nominal: "", uraian: "" }) {
     const container = document.getElementById("pendapatanContainer");
     const newRow = document.createElement("div");
-    newRow.className = "pendapatan-item grid grid-cols-11 gap-2 mb-2";
+    newRow.className = "pendapatan-item grid grid-cols-12 gap-2";
     newRow.innerHTML = `
-        <input type="text" name="pendapatan_jenis[]" placeholder="Jenis Pendapatan" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.jenis}">
-        <input type="number" name="pendapatan_nominal[]" placeholder="Nominal" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.nominal}">
-        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center">X</button>
+        <input type="text" name="pendapatan_jenis[]" placeholder="Jenis Pendapatan" class="col-span-4 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.jenis || ""
+        }">
+        <input type="number" name="pendapatan_nominal[]" placeholder="Nominal" class="col-span-4 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.nominal || ""
+        }">
+        <textarea name="pendapatan_uraian[]" placeholder="Uraian" rows="1" class="col-span-3 px-3 py-2 border border-gray-300 rounded-md">${
+            item.uraian || ""
+        }</textarea>
+        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-100 text-red-600 rounded-md hover:bg-red-200 flex items-center justify-center font-bold">X</button>
     `;
     container.appendChild(newRow);
 }
 
-function addBelanjaRow(item = { jenis: "", nominal: "" }) {
+function addBelanjaRow(item = { jenis: "", nominal: "", uraian: "" }) {
     const container = document.getElementById("belanjaContainer");
     const newRow = document.createElement("div");
-    newRow.className = "belanja-item grid grid-cols-11 gap-2 mb-2";
+    newRow.className = "belanja-item grid grid-cols-12 gap-2";
     newRow.innerHTML = `
-        <input type="text" name="belanja_jenis[]" placeholder="Jenis Belanja" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.jenis}">
-        <input type="number" name="belanja_nominal[]" placeholder="Nominal" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.nominal}">
-        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center">X</button>
+        <input type="text" name="belanja_jenis[]" placeholder="Jenis Belanja" class="col-span-4 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.jenis || ""
+        }">
+        <input type="number" name="belanja_nominal[]" placeholder="Nominal" class="col-span-4 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.nominal || ""
+        }">
+        <textarea name="belanja_uraian[]" placeholder="Uraian" rows="1" class="col-span-3 px-3 py-2 border border-gray-300 rounded-md">${
+            item.uraian || ""
+        }</textarea>
+        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-100 text-red-600 rounded-md hover:bg-red-200 flex items-center justify-center font-bold">X</button>
     `;
     container.appendChild(newRow);
 }
@@ -1695,10 +2191,12 @@ function editBantuanSosial() {
 function createBantuanSosialForm() {
     return `
         <form id="infografisEditForm">
-            <div class="space-y-4">
-                <h4 class="font-medium text-gray-700 mb-3">Jenis Bantuan dan Jumlah Penerima</h4>
-                <div id="bansosContainer"></div>
-                <button type="button" onclick="addBansosRow()" class="mt-2 text-sm text-primary hover:text-teal-700">+ Tambah Baris Bantuan</button>
+            <input type="hidden" name="bansos_update" value="true">
+
+            <div>
+                <h4 class="font-medium text-gray-800 mb-3">Jenis Bantuan dan Jumlah Penerima</h4>
+                <div id="bansosContainer" class="space-y-2"></div>
+                <button type="button" onclick="addBansosRow()" class="mt-3 text-sm text-primary hover:text-teal-700 font-semibold">+ Tambah Baris Bantuan</button>
             </div>
         </form>
     `;
@@ -1707,11 +2205,15 @@ function createBantuanSosialForm() {
 function addBansosRow(item = { jenis: "", jumlah: "" }) {
     const container = document.getElementById("bansosContainer");
     const newRow = document.createElement("div");
-    newRow.className = "bansos-item grid grid-cols-11 gap-2 mb-2";
+    newRow.className = "bansos-item grid grid-cols-12 gap-2";
     newRow.innerHTML = `
-        <input type="text" name="bansos_jenis[]" placeholder="Jenis Bantuan Sosial" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.jenis}">
-        <input type="number" name="bansos_jumlah[]" placeholder="Jumlah Penerima" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.jumlah}">
-        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center">X</button>
+        <input type="text" name="bansos_jenis[]" placeholder="Jenis Bantuan Sosial" class="col-span-6 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.jenis || ""
+        }">
+        <input type="number" name="bansos_jumlah[]" placeholder="Jumlah Penerima" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.jumlah || ""
+        }">
+        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-100 text-red-600 rounded-md hover:bg-red-200 flex items-center justify-center font-bold">X</button>
     `;
     container.appendChild(newRow);
 }
@@ -1730,6 +2232,35 @@ function populateInfografisForms() {
             stats.laki_laki || "";
         document.getElementById("infografis_perempuan").value =
             stats.perempuan || "";
+
+        // Helper untuk mengisi grup data dinamis (Dusun, Pendidikan, Pekerjaan)
+        const populateGroup = (dataObject, containerId, addRowFunction) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            container.innerHTML = "";
+            const dataArray = Object.entries(dataObject || {}).map(
+                ([key, value]) => ({ key, value })
+            );
+
+            if (dataArray.length > 0) {
+                dataArray.forEach((item) => addRowFunction(item));
+            } else {
+                addRowFunction(); // Tambah satu baris kosong jika tidak ada data
+            }
+        };
+
+        populateGroup(data.berdasarkan_dusun, "dusunContainer", addDusunRow);
+        populateGroup(
+            data.berdasarkan_pendidikan,
+            "pendidikanContainer",
+            addPendidikanRow
+        );
+        populateGroup(
+            data.berdasarkan_pekerjaan,
+            "pekerjaanContainer",
+            addPekerjaanRow
+        );
     } else if (currentInfografisEditType === "apbdesa") {
         const apb = data.apbdesa || {};
         document.getElementById("pendapatanContainer").innerHTML = "";
@@ -1751,7 +2282,7 @@ function populateInfografisForms() {
         if (bansosArray.length > 0) {
             bansosArray.forEach((item) => addBansosRow(item));
         } else {
-            addBansosRow();
+            addBansosRow(); // Tambah satu baris kosong jika tidak ada data
         }
     }
 }
@@ -1926,9 +2457,6 @@ async function deleteSelectedOrganisasi() {
     }
 }
 
-/**
- * Membuat HTML untuk form tambah/edit organisasi.
- */
 function createOrganisasiForm(item = null) {
     return `
         <form id="organisasiEditForm" enctype="multipart/form-data">
@@ -2048,4 +2576,52 @@ function updateDeleteOrganisasiButton() {
     );
     const deleteBtn = document.getElementById("deleteSelectedOrganisasiBtn");
     if (deleteBtn) deleteBtn.disabled = checkedBoxes.length === 0;
+}
+
+function addDusunRow(item = { key: "", value: "" }) {
+    const container = document.getElementById("dusunContainer");
+    const newRow = document.createElement("div");
+    newRow.className = "grid grid-cols-12 gap-2";
+    newRow.innerHTML = `
+        <input type="text" name="dusun_keys[]" placeholder="Nama Dusun" class="col-span-6 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.key || ""
+        }">
+        <input type="number" name="dusun_values[]" placeholder="Jumlah Penduduk" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.value || ""
+        }">
+        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-100 text-red-600 rounded-md hover:bg-red-200 flex items-center justify-center font-bold">X</button>
+    `;
+    container.appendChild(newRow);
+}
+
+function addPendidikanRow(item = { key: "", value: "" }) {
+    const container = document.getElementById("pendidikanContainer");
+    const newRow = document.createElement("div");
+    newRow.className = "grid grid-cols-12 gap-2";
+    newRow.innerHTML = `
+        <input type="text" name="pendidikan_keys[]" placeholder="Tingkat Pendidikan" class="col-span-6 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.key || ""
+        }">
+        <input type="number" name="pendidikan_values[]" placeholder="Jumlah" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.value || ""
+        }">
+        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-100 text-red-600 rounded-md hover:bg-red-200 flex items-center justify-center font-bold">X</button>
+    `;
+    container.appendChild(newRow);
+}
+
+function addPekerjaanRow(item = { key: "", value: "" }) {
+    const container = document.getElementById("pekerjaanContainer");
+    const newRow = document.createElement("div");
+    newRow.className = "grid grid-cols-12 gap-2";
+    newRow.innerHTML = `
+        <input type="text" name="pekerjaan_keys[]" placeholder="Jenis Pekerjaan" class="col-span-6 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.key || ""
+        }">
+        <input type="number" name="pekerjaan_values[]" placeholder="Jumlah" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${
+            item.value || ""
+        }">
+        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-100 text-red-600 rounded-md hover:bg-red-200 flex items-center justify-center font-bold">X</button>
+    `;
+    container.appendChild(newRow);
 }

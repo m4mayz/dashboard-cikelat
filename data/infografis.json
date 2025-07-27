@@ -1,26 +1,21 @@
 {
   "statistik_penduduk": {
-    "total_penduduk": 122,
-    "total_kk": 1213,
-    "laki_laki": 12313,
-    "perempuan": 12313,
-    "berdasarkan_usia": {},
-    "berdasarkan_dusun": {},
-    "berdasarkan_pendidikan": {},
-    "berdasarkan_pekerjaan": {}
+    "total_penduduk": 0,
+    "total_kk": 0,
+    "laki_laki": 0,
+    "perempuan": 0
   },
   "apbdesa": {
-    "pendapatan": [
-      {
-        "jenis": "DANA DESA",
-        "nominal": 10000000,
-        "uraian": ""
-      }
-    ],
+    "pendapatan": [],
     "belanja": []
   },
-  "bantuan_sosial": {
-    "bpjs": 100,
-    "sembako": 500
-  }
+  "bantuan_sosial": {},
+  "berdasarkan_dusun": {
+    "Cikupa": 0,
+    "Cikelat": 0,
+    "Bangbayang": 0,
+    "Nagrak": 0
+  },
+  "berdasarkan_pendidikan": {},
+  "berdasarkan_pekerjaan": {}
 }

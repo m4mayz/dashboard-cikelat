@@ -1,18 +1,3 @@
 {
-  "berita": [
-    {
-      "id": 1753360562356,
-      "judul": "Day 17 Edukasi Digital",
-      "isi": "itu aja",
-      "waktu_rilis": "2025-07-24T12:36:02.356Z",
-      "thumbnail": "/uploads/1753360562326-AAGRBT0C7xk_1753292858148.png"
-    },
-    {
-      "id": 1753360608860,
-      "judul": "Day 18",
-      "isi": "itu we",
-      "waktu_rilis": "2025-07-24T12:36:48.860Z",
-      "thumbnail": null
-    }
-  ]
+  "berita": []
 }

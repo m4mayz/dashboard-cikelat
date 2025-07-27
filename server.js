@@ -13,6 +13,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use("/uploads", express.static("uploads"));
+app.use(
+    "/templates",
+    express.static(path.join(__dirname, "public", "templates"))
+);
 
 // Session configuration
 app.use(
@@ -22,7 +26,7 @@ app.use(
         saveUninitialized: false,
         cookie: {
             maxAge: 60 * 60 * 1000, // 1 hour
-            secure: false,
+            secure: false, // Set true if using HTTPS
         },
     })
 );
@@ -30,7 +34,6 @@ app.use(
 // File upload configuration
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        // Pastikan folder 'uploads' ada
         const uploadPath = "uploads/";
         if (!fs.existsSync(uploadPath)) {
             fs.mkdirSync(uploadPath);
@@ -38,7 +41,7 @@ const storage = multer.diskStorage({
         cb(null, uploadPath);
     },
     filename: function (req, file, cb) {
-        cb(null, Date.now() + "-" + file.originalname);
+        cb(null, Date.now() + "-" + file.originalname.replace(/\s+/g, "-"));
     },
 });
 
@@ -49,27 +52,39 @@ const upload = multer({
     },
 });
 
-// Authentication middleware
-const requireAuth = (req, res, next) => {
-    if (req.session.authenticated) {
-        next();
-    } else {
-        // Jika permintaan API, kirim error, jika tidak, redirect.
-        if (req.path.startsWith("/api/")) {
-            return res
-                .status(401)
-                .json({ success: false, message: "Authentication required" });
+// Helper functions
+const logActivity = (type, action, detail = "") => {
+    const logFilePath = path.join(__dirname, "data", "aktivitas.json");
+    let logs = [];
+    try {
+        if (fs.existsSync(logFilePath)) {
+            logs = JSON.parse(fs.readFileSync(logFilePath, "utf8"));
         }
-        res.redirect("/login.html");
+    } catch (e) {
+        console.error("Error reading activity log:", e);
+        logs = [];
     }
+
+    const newLog = {
+        type,
+        action,
+        detail,
+        timestamp: new Date().toISOString(),
+    };
+
+    // Tambahkan log baru di urutan pertama
+    logs.unshift(newLog);
+
+    // Batasi jumlah log agar file tidak terlalu besar
+    const slicedLogs = logs.slice(0, 5); // Diubah dari 50 menjadi 5
+
+    fs.writeFileSync(logFilePath, JSON.stringify(slicedLogs, null, 2));
 };
 
-// Data helper functions
 const readJsonFile = (filename) => {
     try {
         const filePath = path.join(__dirname, "data", filename);
         if (!fs.existsSync(filePath)) {
-            // Jika file tidak ada, buat file kosong dengan struktur dasar
             let basicStructure = {};
             if (filename === "profil.json") {
                 basicStructure = {
@@ -79,7 +94,6 @@ const readJsonFile = (filename) => {
                     organisasi: [],
                 };
             }
-            // Tambahkan struktur dasar untuk file lain jika perlu
             writeJsonFile(filename, basicStructure);
             return basicStructure;
         }
@@ -95,8 +109,37 @@ const writeJsonFile = (filename, data) => {
     try {
         const filePath = path.join(__dirname, "data", filename);
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+        return true; // Kembalikan true jika berhasil
     } catch (error) {
         console.error(`Error writing to ${filename}:`, error);
+        return false; // Kembalikan false jika gagal
+    }
+};
+
+const deleteFile = (filePath) => {
+    if (filePath) {
+        try {
+            const fullPath = path.join(__dirname, filePath);
+            if (fs.existsSync(fullPath)) {
+                fs.unlinkSync(fullPath);
+            }
+        } catch (err) {
+            console.error(`Gagal menghapus file: ${filePath}`, err);
+        }
+    }
+};
+
+// Authentication middleware
+const requireAuth = (req, res, next) => {
+    if (req.session.authenticated) {
+        next();
+    } else {
+        if (req.path.startsWith("/api/")) {
+            return res
+                .status(401)
+                .json({ success: false, message: "Authentication required" });
+        }
+        res.redirect("/login.html");
     }
 };
 
@@ -105,10 +148,11 @@ app.get("/", (req, res) => {
     res.redirect("/login.html");
 });
 
-// Login endpoint
+// Login & Session
 app.post("/api/login", (req, res) => {
     const { username, password } = req.body;
-    if (username === "admin" && password === "password123") {
+    // Ganti dengan username dan password yang lebih aman
+    if (username === "admin" && password === "admin123") {
         req.session.authenticated = true;
         req.session.loginTime = Date.now();
         res.json({ success: true });
@@ -117,151 +161,115 @@ app.post("/api/login", (req, res) => {
     }
 });
 
-// Logout endpoint
 app.post("/api/logout", (req, res) => {
     req.session.destroy();
     res.json({ success: true });
 });
 
-// Check session endpoint
 app.get("/api/check-session", (req, res) => {
     if (req.session.authenticated) {
-        const currentTime = Date.now();
-        const loginTime = req.session.loginTime || currentTime;
-        const timeElapsed = currentTime - loginTime;
-        const maxAge = 60 * 60 * 1000; // 1 hour
-
-        if (timeElapsed > maxAge) {
-            req.session.destroy();
-            res.json({ authenticated: false, expired: true });
-        } else {
-            res.json({
-                authenticated: true,
-                timeRemaining: maxAge - timeElapsed,
-            });
-        }
+        const timeRemaining = req.session.cookie.expires.getTime() - Date.now();
+        res.json({ authenticated: true, timeRemaining });
     } else {
         res.json({ authenticated: false });
     }
 });
 
-// Protected routes
+// Protected dashboard route
 app.get("/dashboard.html", requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, "public", "dashboard.html"));
 });
 
-// API endpoints for data management
+// ===================================================================
+// API Endpoints for Data Management
+// ===================================================================
 
-// Home data (Tidak ada perubahan)
+// Home
 app.get("/api/home", requireAuth, (req, res) => {
     const homeData = readJsonFile("home.json");
     const infografisData = readJsonFile("infografis.json");
-    const responseData = {
-        nama_kepala_desa: homeData.nama_kepala_desa || "",
-        sambutan: homeData.sambutan || "",
-        foto: homeData.foto || "",
-        pengumuman_terbaru: homeData.pengumuman_terbaru || "",
-        total_penduduk: infografisData.statistik_penduduk?.total_penduduk || 0,
-        total_kk: infografisData.statistik_penduduk?.total_kk || 0,
-        laki_laki: infografisData.statistik_penduduk?.laki_laki || 0,
-        perempuan: infografisData.statistik_penduduk?.perempuan || 0,
-    };
-    res.json(responseData);
+    res.json({
+        ...homeData,
+        ...infografisData.statistik_penduduk,
+    });
 });
 
 app.post("/api/home", requireAuth, upload.single("foto"), (req, res) => {
     const homeData = readJsonFile("home.json");
     const infografisData = readJsonFile("infografis.json");
 
-    if (req.body.nama_kepala_desa)
+    if (req.file) {
+        deleteFile(homeData.foto); // Hapus foto lama
+        homeData.foto = "/uploads/" + req.file.filename;
+    }
+
+    if (req.body.nama_kepala_desa !== undefined)
         homeData.nama_kepala_desa = req.body.nama_kepala_desa;
-    if (req.body.sambutan) homeData.sambutan = req.body.sambutan;
-    if (req.body.pengumuman_terbaru)
-        homeData.pengumuman_terbaru = req.body.pengumuman_terbaru;
-    if (req.file) homeData.foto = "/uploads/" + req.file.filename;
+    if (req.body.sambutan !== undefined) homeData.sambutan = req.body.sambutan;
 
     if (!infografisData.statistik_penduduk)
         infografisData.statistik_penduduk = {};
-    if (req.body.total_penduduk)
+    if (req.body.total_penduduk !== undefined)
         infografisData.statistik_penduduk.total_penduduk = parseInt(
             req.body.total_penduduk
         );
-    if (req.body.total_kk)
+    if (req.body.total_kk !== undefined)
         infografisData.statistik_penduduk.total_kk = parseInt(
             req.body.total_kk
         );
-    if (req.body.laki_laki)
+    if (req.body.laki_laki !== undefined)
         infografisData.statistik_penduduk.laki_laki = parseInt(
             req.body.laki_laki
         );
-    if (req.body.perempuan)
+    if (req.body.perempuan !== undefined)
         infografisData.statistik_penduduk.perempuan = parseInt(
             req.body.perempuan
         );
 
     writeJsonFile("home.json", homeData);
     writeJsonFile("infografis.json", infografisData);
+    logActivity("Home", "diperbarui", "Data halaman utama");
     res.json({ success: true });
 });
 
-//===================================================================
-// PERUBAHAN UTAMA DIMULAI DARI SINI
-//===================================================================
-
-// Profile data
+// Profil Desa (Visi, Misi, Sejarah)
 app.get("/api/profil", requireAuth, (req, res) => {
     const data = readJsonFile("profil.json");
-    // Pastikan struktur data benar, terutama 'organisasi' harus array
-    if (!Array.isArray(data.organisasi)) {
-        data.organisasi = [];
-    }
     res.json(data);
 });
 
-// Endpoint ini HANYA untuk update Visi, Misi, Sejarah. TIDAK lagi menangani organisasi.
 app.post("/api/profil", requireAuth, (req, res) => {
     const data = readJsonFile("profil.json");
+    if (req.body.visi !== undefined) data.visi = req.body.visi;
+    if (req.body.misi !== undefined) data.misi = req.body.misi;
+    if (req.body.sejarah !== undefined) data.sejarah = req.body.sejarah;
 
-    // Update hanya field yang relevan
-    if (req.body.visi) data.visi = req.body.visi;
-    if (req.body.misi) data.misi = req.body.misi;
-    if (req.body.sejarah) data.sejarah = req.body.sejarah;
-
+    logActivity("Profil Desa", "diperbarui", "Visi, Misi, atau Sejarah");
     writeJsonFile("profil.json", data);
     res.json({ success: true });
 });
 
-// ENDPOINT BARU UNTUK MANAJEMEN ORGANISASI (CRUD)
-
-// 1. CREATE: Menambah organisasi baru
+// Profil Desa (Organisasi CRUD)
 app.post(
     "/api/organisasi",
     requireAuth,
     upload.single("gambar_struktur"),
     (req, res) => {
         const data = readJsonFile("profil.json");
-        if (!Array.isArray(data.organisasi)) {
-            data.organisasi = [];
-        }
-
         const newOrganisasi = {
-            id: Date.now(), // ID unik berdasarkan timestamp
+            id: Date.now(),
             nama: req.body.nama,
             periode: req.body.periode,
             gambar_struktur: req.file ? "/uploads/" + req.file.filename : null,
         };
-
+        if (!Array.isArray(data.organisasi)) data.organisasi = [];
         data.organisasi.push(newOrganisasi);
+        logActivity("Struktur Organisasi", "ditambahkan", newOrganisasi.nama);
         writeJsonFile("profil.json", data);
-        res.json({
-            success: true,
-            message: "Organisasi berhasil ditambahkan.",
-        });
+        res.json({ success: true });
     }
 );
 
-// 2. UPDATE: Mengubah organisasi yang ada berdasarkan ID
-// Menggunakan POST agar konsisten dengan frontend yang mengirim file
 app.post(
     "/api/organisasi/:id",
     requireAuth,
@@ -271,312 +279,334 @@ app.post(
         const orgId = parseInt(req.params.id);
         const orgIndex = data.organisasi.findIndex((o) => o.id === orgId);
 
-        if (orgIndex === -1) {
-            return res
-                .status(404)
-                .json({
-                    success: false,
-                    message: "Organisasi tidak ditemukan.",
-                });
-        }
+        if (orgIndex === -1)
+            return res.status(404).json({
+                success: false,
+                message: "Organisasi tidak ditemukan.",
+            });
 
-        // Update data
         const orgToUpdate = data.organisasi[orgIndex];
-        orgToUpdate.nama = req.body.nama || orgToUpdate.nama;
-        orgToUpdate.periode = req.body.periode || orgToUpdate.periode;
         if (req.file) {
-            // Hapus file lama jika ada untuk menghemat ruang (opsional)
-            if (orgToUpdate.gambar_struktur) {
-                const oldImagePath = path.join(
-                    __dirname,
-                    orgToUpdate.gambar_struktur
-                );
-                if (fs.existsSync(oldImagePath)) {
-                    // fs.unlinkSync(oldImagePath);
-                }
-            }
+            deleteFile(orgToUpdate.gambar_struktur); // Hapus file lama
             orgToUpdate.gambar_struktur = "/uploads/" + req.file.filename;
         }
+        orgToUpdate.nama = req.body.nama || orgToUpdate.nama;
+        orgToUpdate.periode = req.body.periode || orgToUpdate.periode;
 
-        data.organisasi[orgIndex] = orgToUpdate;
+        logActivity("Struktur Organisasi", "diperbarui", orgToUpdate.nama);
         writeJsonFile("profil.json", data);
-        res.json({ success: true, message: "Organisasi berhasil diperbarui." });
+        res.json({ success: true });
     }
 );
 
-// 3. DELETE: Menghapus organisasi berdasarkan ID
 app.delete("/api/organisasi/:id", requireAuth, (req, res) => {
     const data = readJsonFile("profil.json");
     const orgId = parseInt(req.params.id);
+    const orgToDelete = data.organisasi.find((o) => o.id === orgId);
 
-    const initialLength = data.organisasi.length;
-    data.organisasi = data.organisasi.filter((o) => o.id !== orgId);
-
-    if (data.organisasi.length === initialLength) {
+    if (!orgToDelete)
         return res
             .status(404)
             .json({ success: false, message: "Organisasi tidak ditemukan." });
-    }
 
+    data.organisasi = data.organisasi.filter((o) => o.id !== orgId);
+    deleteFile(orgToDelete.gambar_struktur); // Hapus file terkait
+    logActivity("Struktur Organisasi", "dihapus", orgToDelete.nama);
     writeJsonFile("profil.json", data);
-    res.json({ success: true, message: "Organisasi berhasil dihapus." });
+    res.json({ success: true });
 });
 
-//===================================================================
-// AKHIR DARI PERUBAHAN UTAMA
-//===================================================================
-
-// Infografis data (Tidak ada perubahan)
+// Infografis
 app.get("/api/infografis", requireAuth, (req, res) => {
     const data = readJsonFile("infografis.json");
     res.json(data);
 });
+
 app.post("/api/infografis", requireAuth, (req, res) => {
     const data = readJsonFile("infografis.json");
-    if (
-        req.body.total_penduduk ||
-        req.body.total_kk ||
-        req.body.laki_laki ||
-        req.body.perempuan
-    ) {
+
+    // Handle semua pembaruan terkait Statistik Penduduk dalam satu blok
+    if (req.body.total_penduduk !== undefined) {
         if (!data.statistik_penduduk) data.statistik_penduduk = {};
-        if (req.body.total_penduduk)
-            data.statistik_penduduk.total_penduduk = parseInt(
-                req.body.total_penduduk
-            );
-        if (req.body.total_kk)
-            data.statistik_penduduk.total_kk = parseInt(req.body.total_kk);
-        if (req.body.laki_laki)
-            data.statistik_penduduk.laki_laki = parseInt(req.body.laki_laki);
-        if (req.body.perempuan)
-            data.statistik_penduduk.perempuan = parseInt(req.body.perempuan);
+        data.statistik_penduduk.total_penduduk =
+            parseInt(req.body.total_penduduk) || 0;
+        data.statistik_penduduk.total_kk = parseInt(req.body.total_kk) || 0;
+        data.statistik_penduduk.laki_laki = parseInt(req.body.laki_laki) || 0;
+        data.statistik_penduduk.perempuan = parseInt(req.body.perempuan) || 0;
+
+        // Helper untuk memproses grup data dinamis
+        const processGroup = (category) => {
+            const keys = req.body[`${category}_keys`];
+            const values = req.body[`${category}_values`];
+            const dataKey = `berdasarkan_${category}`;
+
+            // Selalu reset objek untuk kategori ini
+            data[dataKey] = {};
+
+            // Jika ada data baru yang dikirim, isi kembali objeknya
+            if (keys && Array.isArray(keys)) {
+                keys.forEach((key, index) => {
+                    if (key) {
+                        // Hanya proses jika nama kategori tidak kosong
+                        data[dataKey][key] = parseInt(values[index]) || 0;
+                    }
+                });
+            }
+        };
+
+        // Proses setiap grup data agregat
+        processGroup("dusun");
+        processGroup("pendidikan");
+        processGroup("pekerjaan");
     }
-    if (req.body.pendapatan_jenis || req.body.belanja_jenis) {
+
+    // Handle APB Desa (logika ini tetap sama)
+    if (req.body.apbdesa_update) {
         if (!data.apbdesa) data.apbdesa = { pendapatan: [], belanja: [] };
+        data.apbdesa.pendapatan = [];
         if (req.body.pendapatan_jenis) {
-            data.apbdesa.pendapatan = [];
-            const jenisArray = Array.isArray(req.body.pendapatan_jenis)
-                ? req.body.pendapatan_jenis
-                : [req.body.pendapatan_jenis];
-            const nominalArray = Array.isArray(req.body.pendapatan_nominal)
-                ? req.body.pendapatan_nominal
-                : [req.body.pendapatan_nominal];
-            const uraianArray = Array.isArray(req.body.pendapatan_uraian)
-                ? req.body.pendapatan_uraian
-                : [req.body.pendapatan_uraian];
-            for (let i = 0; i < jenisArray.length; i++) {
-                if (jenisArray[i]) {
+            req.body.pendapatan_jenis.forEach((jenis, i) => {
+                if (jenis)
                     data.apbdesa.pendapatan.push({
-                        jenis: jenisArray[i],
-                        nominal: parseInt(nominalArray[i]) || 0,
-                        uraian: uraianArray[i] || "",
+                        jenis,
+                        nominal: parseInt(req.body.pendapatan_nominal[i]) || 0,
+                        uraian: req.body.pendapatan_uraian[i] || "",
                     });
-                }
-            }
+            });
         }
+        data.apbdesa.belanja = [];
         if (req.body.belanja_jenis) {
-            data.apbdesa.belanja = [];
-            const jenisArray = Array.isArray(req.body.belanja_jenis)
-                ? req.body.belanja_jenis
-                : [req.body.belanja_jenis];
-            const nominalArray = Array.isArray(req.body.belanja_nominal)
-                ? req.body.belanja_nominal
-                : [req.body.belanja_nominal];
-            const uraianArray = Array.isArray(req.body.belanja_uraian)
-                ? req.body.belanja_uraian
-                : [req.body.belanja_uraian];
-            for (let i = 0; i < jenisArray.length; i++) {
-                if (jenisArray[i]) {
+            req.body.belanja_jenis.forEach((jenis, i) => {
+                if (jenis)
                     data.apbdesa.belanja.push({
-                        jenis: jenisArray[i],
-                        nominal: parseInt(nominalArray[i]) || 0,
-                        uraian: uraianArray[i] || "",
+                        jenis,
+                        nominal: parseInt(req.body.belanja_nominal[i]) || 0,
+                        uraian: req.body.belanja_uraian[i] || "",
                     });
-                }
-            }
+            });
         }
     }
-    if (req.body.bansos_jenis) {
+
+    // Handle Bantuan Sosial (logika ini tetap sama)
+    if (req.body.bansos_update) {
         data.bantuan_sosial = {};
-        const jenisArray = Array.isArray(req.body.bansos_jenis)
-            ? req.body.bansos_jenis
-            : [req.body.bansos_jenis];
-        const jumlahArray = Array.isArray(req.body.bansos_jumlah)
-            ? req.body.bansos_jumlah
-            : [req.body.bansos_jumlah];
-        for (let i = 0; i < jenisArray.length; i++) {
-            if (jenisArray[i]) {
-                data.bantuan_sosial[jenisArray[i]] =
-                    parseInt(jumlahArray[i]) || 0;
-            }
+        if (req.body.bansos_jenis) {
+            req.body.bansos_jenis.forEach((jenis, i) => {
+                if (jenis)
+                    data.bantuan_sosial[jenis] =
+                        parseInt(req.body.bansos_jumlah[i]) || 0;
+            });
         }
     }
+
+    logActivity("Infografis", "diperbarui", "Data infografis desa");
     writeJsonFile("infografis.json", data);
     res.json({ success: true });
 });
 
-// Sisa endpoint (Berita, Pengumuman, Belanja, Excel) tidak ada perubahan
 // Berita
-app.get("/api/berita", requireAuth, (req, res) => {
-    const data = readJsonFile("berita.json");
-    res.json(data.berita || []);
-});
+app.get("/api/berita", requireAuth, (req, res) =>
+    res.json(readJsonFile("berita.json").berita || [])
+);
+
 app.post("/api/berita", requireAuth, upload.single("thumbnail"), (req, res) => {
     const data = readJsonFile("berita.json");
     if (!data.berita) data.berita = [];
-    const berita = {
+    const newItem = {
         id: Date.now(),
         judul: req.body.judul,
         isi: req.body.isi,
         waktu_rilis: req.body.waktu_rilis || new Date().toISOString(),
         thumbnail: req.file ? "/uploads/" + req.file.filename : null,
     };
-    data.berita.push(berita);
+    data.berita.unshift(newItem);
+    logActivity("Berita", "ditambahkan", newItem.judul);
     writeJsonFile("berita.json", data);
     res.json({ success: true });
 });
+
 app.put(
     "/api/berita/:id",
     requireAuth,
     upload.single("thumbnail"),
     (req, res) => {
         const data = readJsonFile("berita.json");
-        const beritaIndex = data.berita.findIndex((b) => b.id == req.params.id);
-        if (beritaIndex !== -1) {
-            data.berita[beritaIndex].judul = req.body.judul;
-            data.berita[beritaIndex].isi = req.body.isi;
-            data.berita[beritaIndex].waktu_rilis = req.body.waktu_rilis;
-            if (req.file) {
-                data.berita[beritaIndex].thumbnail =
-                    "/uploads/" + req.file.filename;
-            }
-            writeJsonFile("berita.json", data);
-            res.json({ success: true });
-        } else {
-            res.status(404).json({
-                success: false,
-                message: "Berita tidak ditemukan",
-            });
+        const itemIndex = data.berita.findIndex((b) => b.id == req.params.id);
+        if (itemIndex === -1)
+            return res
+                .status(404)
+                .json({ success: false, message: "Berita tidak ditemukan" });
+
+        const itemToUpdate = data.berita[itemIndex];
+        if (req.file) {
+            deleteFile(itemToUpdate.thumbnail);
+            itemToUpdate.thumbnail = "/uploads/" + req.file.filename;
         }
+        itemToUpdate.judul = req.body.judul;
+        itemToUpdate.isi = req.body.isi;
+        itemToUpdate.waktu_rilis = req.body.waktu_rilis;
+
+        logActivity("Berita", "diperbarui", itemToUpdate.judul);
+        writeJsonFile("berita.json", data);
+        res.json({ success: true });
     }
 );
+
 app.delete("/api/berita/:id", requireAuth, (req, res) => {
     const data = readJsonFile("berita.json");
+    const itemToDelete = data.berita.find((b) => b.id == req.params.id);
+    if (!itemToDelete)
+        return res
+            .status(404)
+            .json({ success: false, message: "Berita tidak ditemukan" });
+
     data.berita = data.berita.filter((b) => b.id != req.params.id);
+    deleteFile(itemToDelete.thumbnail);
+    logActivity("Berita", "dihapus", itemToDelete.judul);
     writeJsonFile("berita.json", data);
     res.json({ success: true });
 });
 
 // Pengumuman
-app.get("/api/pengumuman", requireAuth, (req, res) => {
-    const data = readJsonFile("pengumuman.json");
-    res.json(data.pengumuman || []);
-});
+app.get("/api/pengumuman", requireAuth, (req, res) =>
+    res.json(readJsonFile("pengumuman.json").pengumuman || [])
+);
+
 app.post("/api/pengumuman", requireAuth, (req, res) => {
     const data = readJsonFile("pengumuman.json");
     if (!data.pengumuman) data.pengumuman = [];
-    const pengumuman = {
+    const newItem = {
         id: Date.now(),
         judul: req.body.judul,
         isi: req.body.isi,
         waktu_rilis: req.body.waktu_rilis || new Date().toISOString(),
     };
-    data.pengumuman.push(pengumuman);
+    data.pengumuman.unshift(newItem);
+    logActivity("Pengumuman", "ditambahkan", newItem.judul);
     writeJsonFile("pengumuman.json", data);
     res.json({ success: true });
 });
+
 app.put("/api/pengumuman/:id", requireAuth, (req, res) => {
     const data = readJsonFile("pengumuman.json");
-    const pengumumanIndex = data.pengumuman.findIndex(
-        (p) => p.id == req.params.id
-    );
-    if (pengumumanIndex !== -1) {
-        data.pengumuman[pengumumanIndex].judul = req.body.judul;
-        data.pengumuman[pengumumanIndex].isi = req.body.isi;
-        data.pengumuman[pengumumanIndex].waktu_rilis = req.body.waktu_rilis;
-        writeJsonFile("pengumuman.json", data);
-        res.json({ success: true });
-    } else {
-        res.status(404).json({
-            success: false,
-            message: "Pengumuman tidak ditemukan",
-        });
-    }
+    const itemIndex = data.pengumuman.findIndex((p) => p.id == req.params.id);
+    if (itemIndex === -1)
+        return res
+            .status(404)
+            .json({ success: false, message: "Pengumuman tidak ditemukan" });
+
+    const itemToUpdate = data.pengumuman[itemIndex];
+    itemToUpdate.judul = req.body.judul;
+    itemToUpdate.isi = req.body.isi;
+    itemToUpdate.waktu_rilis = req.body.waktu_rilis;
+
+    logActivity("Pengumuman", "diperbarui", itemToUpdate.judul);
+    writeJsonFile("pengumuman.json", data);
+    res.json({ success: true });
 });
+
 app.delete("/api/pengumuman/:id", requireAuth, (req, res) => {
     const data = readJsonFile("pengumuman.json");
+    const itemToDelete = data.pengumuman.find((p) => p.id == req.params.id);
+    if (!itemToDelete)
+        return res
+            .status(404)
+            .json({ success: false, message: "Pengumuman tidak ditemukan" });
+
     data.pengumuman = data.pengumuman.filter((p) => p.id != req.params.id);
+    logActivity("Pengumuman", "dihapus", itemToDelete.judul);
     writeJsonFile("pengumuman.json", data);
     res.json({ success: true });
 });
 
 // Belanja
-app.get("/api/belanja", requireAuth, (req, res) => {
-    const data = readJsonFile("belanja.json");
-    res.json(data.produk || []);
-});
+app.get("/api/belanja", requireAuth, (req, res) =>
+    res.json(readJsonFile("belanja.json").produk || [])
+);
+
 app.post("/api/belanja", requireAuth, upload.single("gambar"), (req, res) => {
     const data = readJsonFile("belanja.json");
     if (!data.produk) data.produk = [];
-    const produk = {
+    const newItem = {
         id: Date.now(),
         nama: req.body.nama,
         harga: req.body.harga,
         no_whatsapp: req.body.no_whatsapp,
         gambar: req.file ? "/uploads/" + req.file.filename : null,
     };
-    data.produk.push(produk);
+    data.produk.unshift(newItem);
+    logActivity("Produk Belanja", "ditambahkan", newItem.nama);
     writeJsonFile("belanja.json", data);
     res.json({ success: true });
 });
+
 app.put(
     "/api/belanja/:id",
     requireAuth,
     upload.single("gambar"),
     (req, res) => {
         const data = readJsonFile("belanja.json");
-        const produkIndex = data.produk.findIndex((p) => p.id == req.params.id);
-        if (produkIndex !== -1) {
-            data.produk[produkIndex].nama = req.body.nama;
-            data.produk[produkIndex].harga = req.body.harga;
-            data.produk[produkIndex].no_whatsapp = req.body.no_whatsapp;
-            if (req.file) {
-                data.produk[produkIndex].gambar =
-                    "/uploads/" + req.file.filename;
-            }
-            writeJsonFile("belanja.json", data);
-            res.json({ success: true });
-        } else {
-            res.status(404).json({
-                success: false,
-                message: "Produk tidak ditemukan",
-            });
+        const itemIndex = data.produk.findIndex((p) => p.id == req.params.id);
+        if (itemIndex === -1)
+            return res
+                .status(404)
+                .json({ success: false, message: "Produk tidak ditemukan" });
+
+        const itemToUpdate = data.produk[itemIndex];
+        if (req.file) {
+            deleteFile(itemToUpdate.gambar);
+            itemToUpdate.gambar = "/uploads/" + req.file.filename;
         }
+        itemToUpdate.nama = req.body.nama;
+        itemToUpdate.harga = req.body.harga;
+        itemToUpdate.no_whatsapp = req.body.no_whatsapp;
+
+        logActivity("Produk Belanja", "diperbarui", itemToUpdate.nama);
+        writeJsonFile("belanja.json", data);
+        res.json({ success: true });
     }
 );
+
 app.delete("/api/belanja/:id", requireAuth, (req, res) => {
     const data = readJsonFile("belanja.json");
+    const itemToDelete = data.produk.find((p) => p.id == req.params.id);
+    if (!itemToDelete)
+        return res
+            .status(404)
+            .json({ success: false, message: "Produk tidak ditemukan" });
+
     data.produk = data.produk.filter((p) => p.id != req.params.id);
+    deleteFile(itemToDelete.gambar);
+    logActivity("Produk Belanja", "dihapus", itemToDelete.nama);
     writeJsonFile("belanja.json", data);
     res.json({ success: true });
 });
 
-// Excel import
+// Aktivitas
+app.get("/api/aktivitas", requireAuth, (req, res) =>
+    res.json(readJsonFile("aktivitas.json") || [])
+);
+
+// Impor Excel
 app.post(
     "/api/import-excel",
     requireAuth,
     upload.single("excel"),
     (req, res) => {
         try {
-            if (!req.file) {
+            if (!req.file)
                 return res
                     .status(400)
                     .json({ success: false, message: "File Excel diperlukan" });
-            }
+
             const workbook = xlsx.readFile(req.file.path);
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const jsonData = xlsx.utils.sheet_to_json(worksheet);
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = xlsx.utils.sheet_to_json(worksheet, {
+                raw: false,
+            });
+
+            deleteFile(req.file.path); // Hapus file setelah dibaca
+
             const processedData = {
                 total_penduduk: 0,
                 total_kk: 0,
@@ -585,36 +615,95 @@ app.post(
                 berdasarkan_dusun: {},
                 berdasarkan_pendidikan: {},
                 berdasarkan_pekerjaan: {},
-                bansos: {},
+                bantuan_sosial: {},
             };
+            const kkSet = new Set();
+            const getColumnValue = (row, keys) => {
+                for (const key of keys) {
+                    const rowKey = Object.keys(row).find(
+                        (rk) => rk.toLowerCase().trim() === key
+                    );
+                    if (rowKey) return row[rowKey];
+                }
+                return null;
+            };
+
             jsonData.forEach((row) => {
-                if (row["Total Penduduk"])
-                    processedData.total_penduduk = row["Total Penduduk"];
-                if (row["Total KK"]) processedData.total_kk = row["Total KK"];
-                if (row["Laki-laki"])
-                    processedData.laki_laki = row["Laki-laki"];
-                if (row["Perempuan"])
-                    processedData.perempuan = row["Perempuan"];
+                processedData.total_penduduk++;
+                const jenisKelamin = getColumnValue(row, [
+                    "jenis kelamin",
+                    "gender",
+                ]);
+                if (jenisKelamin) {
+                    if (String(jenisKelamin).toLowerCase().startsWith("l"))
+                        processedData.laki_laki++;
+                    else if (String(jenisKelamin).toLowerCase().startsWith("p"))
+                        processedData.perempuan++;
+                }
+                const noKk = getColumnValue(row, [
+                    "no. kartu keluarga",
+                    "no kk",
+                ]);
+                if (noKk) kkSet.add(noKk);
+
+                [
+                    "dusun",
+                    "pendidikan",
+                    "pekerjaan",
+                    "penerima bantuan sosial",
+                ].forEach((category) => {
+                    const value = getColumnValue(row, [
+                        category.replace(/ /g, ""),
+                        category,
+                    ]);
+                    if (
+                        value &&
+                        !["tidak", "bukan", "-"].includes(
+                            String(value).toLowerCase().trim()
+                        )
+                    ) {
+                        const targetObj =
+                            category === "penerima bantuan sosial"
+                                ? processedData.bantuan_sosial
+                                : processedData[`berdasarkan_${category}`];
+                        targetObj[value] = (targetObj[value] || 0) + 1;
+                    }
+                });
             });
-            fs.unlinkSync(req.file.path);
+            processedData.total_kk = kkSet.size;
+
             res.json({ success: true, data: processedData });
         } catch (error) {
+            console.error("Error processing Excel file:", error);
             res.status(500).json({
                 success: false,
-                message: "Error processing Excel file: " + error.message,
+                message: "Gagal memproses file Excel.",
             });
         }
     }
 );
+
 app.post("/api/apply-import", requireAuth, (req, res) => {
     const importedData = req.body;
     const currentData = readJsonFile("infografis.json");
     Object.assign(currentData, importedData);
-    writeJsonFile("infografis.json", currentData);
-    res.json({ success: true });
+
+    // Panggil fungsi tulis file dan tangkap statusnya
+    const isSuccess = writeJsonFile("infografis.json", currentData);
+
+    if (isSuccess) {
+        logActivity("Data Penduduk", "diimpor", "via file Excel");
+        res.json({ success: true });
+    } else {
+        // Kirim status error 500 jika gagal menulis file
+        res.status(500).json({
+            success: false,
+            message: "Terjadi kesalahan di server saat menyimpan file.",
+        });
+    }
 });
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
