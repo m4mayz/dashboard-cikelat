@@ -1,10 +1,19 @@
 {
-    "visi": "",
-    "misi": "",
-    "sejarah": "",
-    "organisasi": {
-        "nama": "",
-        "gambar_struktur": "",
-        "periode": ""
+  "visi": "Menjadi desa yang maju, mandiri, dan sejahtera.",
+  "misi": "Meningkatkan kualitas sumber daya manusia dan infrastruktur desa.",
+  "sejarah": "Desa ini didirikan pada tahun 1950 oleh para transmigran...",
+  "organisasi": [
+    {
+      "id": 1753608253240,
+      "nama": "BPD",
+      "periode": "2025-2030",
+      "gambar_struktur": "/uploads/1753608253115-IMG_20250725_094331.jpg"
+    },
+    {
+      "id": 1753608273865,
+      "nama": "kkn nusput",
+      "periode": "juli",
+      "gambar_struktur": "/uploads/1753608273821-DSC00575.JPG"
     }
+  ]
 }

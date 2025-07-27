@@ -14,21 +14,10 @@
       {
         "jenis": "DANA DESA",
         "nominal": 10000000,
-        "uraian": "dana desa"
-      },
-      {
-        "jenis": "dana kkn",
-        "nominal": 10000000000,
-        "uraian": "nusput"
+        "uraian": ""
       }
     ],
-    "belanja": [
-      {
-        "jenis": "belanja batu",
-        "nominal": 50000,
-        "uraian": "batu"
-      }
-    ]
+    "belanja": []
   },
   "bantuan_sosial": {
     "bpjs": 100,

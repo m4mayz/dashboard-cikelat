@@ -536,10 +536,11 @@ async function logout() {
 async function loadProfilSection(element) {
     const response = await fetch("/api/profil");
     const data = await response.json();
+    // Simpan data ke variabel global agar bisa diakses oleh fungsi edit
+    window.profilData = data;
 
     element.innerHTML = `
         <div class="space-y-6">
-            <!-- Visi & Misi -->
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-800">Visi & Misi</h3>
@@ -565,7 +566,6 @@ async function loadProfilSection(element) {
                 </div>
             </div>
             
-            <!-- Sejarah Desa -->
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-800">Sejarah Desa</h3>
@@ -581,38 +581,81 @@ async function loadProfilSection(element) {
                 </div>
             </div>
             
-            <!-- Organisasi -->
             <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Struktur Organisasi</h3>
-                    <button onclick="editOrganisasi()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-teal-700">
-                        Edit
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800">Struktur Organisasi Desa</h3>
+                    <button onclick="addOrganisasi()" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-teal-700">
+                        + Tambah Organisasi
                     </button>
                 </div>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 class="font-medium text-gray-700 mb-2">Nama Organisasi</h4>
-                        <p class="text-gray-600">${
-                            data.organisasi?.nama || "Belum diisi"
-                        }</p>
-                        
-                        <h4 class="font-medium text-gray-700 mb-2 mt-4">Periode</h4>
-                        <p class="text-gray-600">${
-                            data.organisasi?.periode || "Belum diisi"
-                        }</p>
-                    </div>
-                    
-                    <div>
-                        <h4 class="font-medium text-gray-700 mb-2">Gambar Struktur</h4>
-                        ${
-                            data.organisasi?.gambar_struktur
-                                ? '<img src="' +
-                                  data.organisasi.gambar_struktur +
-                                  '" class="w-full max-w-md h-auto rounded-lg" alt="Struktur Organisasi">'
-                                : '<p class="text-gray-500">Belum ada gambar</p>'
-                        }
-                    </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left">
+                                    <input type="checkbox" id="selectAllOrganisasi" onchange="selectAllOrganisasi(this)">
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gambar Struktur</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Organisasi</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Periode</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${
+                                // DIASUMSIKAN data.organisasi sekarang adalah array: [{id, nama, periode, gambar_struktur}, ...]
+                                (data.organisasi || [])
+                                    .map(
+                                        (item) => `
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <input type="checkbox" name="organisasiCheck" value="${
+                                            item.id
+                                        }" onchange="updateDeleteOrganisasiButton()">
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <img src="${
+                                            item.gambar_struktur ||
+                                            "https://via.placeholder.com/100"
+                                        }" class="w-16 h-16 object-cover rounded-lg" alt="Struktur ${
+                                            item.nama
+                                        }">
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm font-medium text-gray-900">${
+                                            item.nama || "N/A"
+                                        }</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        ${item.periode || "N/A"}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button onclick="editOrganisasi(${
+                                            item.id
+                                        })" class="text-indigo-600 hover:text-indigo-900 mr-2">Edit</button>
+                                        <button onclick="deleteOrganisasi(${
+                                            item.id
+                                        })" class="text-red-600 hover:text-red-900">Hapus</button>
+                                    </td>
+                                </tr>
+                                `
+                                    )
+                                    .join("")
+                            }
+                        </tbody>
+                    </table>
+                     ${
+                         (data.organisasi || []).length === 0
+                             ? '<div class="text-center py-8 text-gray-500">Belum ada data organisasi</div>'
+                             : ""
+                     }
+                </div>
+
+                <div class="mt-4 flex justify-between items-center">
+                    <button onclick="deleteSelectedOrganisasi()" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50" disabled id="deleteSelectedOrganisasiBtn">
+                        Hapus Terpilih
+                    </button>
                 </div>
             </div>
         </div>
@@ -622,10 +665,10 @@ async function loadProfilSection(element) {
 async function loadInfografisSection(element) {
     const response = await fetch("/api/infografis");
     const data = await response.json();
+    window.infografisData = data; // Simpan data untuk digunakan saat edit
 
     element.innerHTML = `
         <div class="space-y-6">
-            <!-- Statistik Penduduk -->
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-lg font-semibold text-gray-800">Statistik Penduduk</h3>
@@ -662,7 +705,6 @@ async function loadInfografisSection(element) {
                 </div>
             </div>
             
-            <!-- APB Desa -->
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-lg font-semibold text-gray-800">APB Desa</h3>
@@ -715,7 +757,6 @@ async function loadInfografisSection(element) {
                 </div>
             </div>
             
-            <!-- Bantuan Sosial -->
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-lg font-semibold text-gray-800">Bantuan Sosial</h3>
@@ -1560,11 +1601,15 @@ async function applyImport() {
 }
 
 // Infografis functions
+let currentInfografisEditType = null;
+
 function editStatistikPenduduk() {
+    currentInfografisEditType = "statistik";
     showFullscreenPopup(
         "Edit Statistik Penduduk",
         createStatistikPendudukForm()
     );
+    populateInfografisForms();
 }
 
 function createStatistikPendudukForm() {
@@ -1573,22 +1618,19 @@ function createStatistikPendudukForm() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Total Penduduk</label>
-                    <input type="number" name="total_penduduk" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                    <input type="number" name="total_penduduk" id="infografis_total_penduduk" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
-                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Total KK</label>
-                    <input type="number" name="total_kk" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                    <input type="number" name="total_kk" id="infografis_total_kk" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
-                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Laki-laki</label>
-                    <input type="number" name="laki_laki" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                    <input type="number" name="laki_laki" id="infografis_laki_laki" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
-                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Perempuan</label>
-                    <input type="number" name="perempuan" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                    <input type="number" name="perempuan" id="infografis_perempuan" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
                 </div>
             </div>
         </form>
@@ -1596,7 +1638,9 @@ function createStatistikPendudukForm() {
 }
 
 function editAPBDesa() {
+    currentInfografisEditType = "apbdesa";
     showFullscreenPopup("Edit APB Desa", createAPBDesaForm());
+    populateInfografisForms();
 }
 
 function createAPBDesaForm() {
@@ -1605,85 +1649,403 @@ function createAPBDesaForm() {
             <div class="space-y-6">
                 <div>
                     <h4 class="font-medium text-gray-700 mb-3">Pendapatan</h4>
-                    <div id="pendapatanContainer">
-                        <div class="pendapatan-item grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                            <input type="text" name="pendapatan_jenis[]" placeholder="Jenis Pendapatan" class="px-3 py-2 border border-gray-300 rounded-md">
-                            <input type="number" name="pendapatan_nominal[]" placeholder="Nominal" class="px-3 py-2 border border-gray-300 rounded-md">
-                            <textarea name="pendapatan_uraian[]" placeholder="Uraian" class="px-3 py-2 border border-gray-300 rounded-md"></textarea>
-                        </div>
-                    </div>
-                    <button type="button" onclick="addPendapatanRow()" class="text-primary hover:text-teal-700">+ Tambah Pendapatan</button>
+                    <div id="pendapatanContainer"></div>
+                    <button type="button" onclick="addPendapatanRow()" class="mt-2 text-sm text-primary hover:text-teal-700">+ Tambah Baris Pendapatan</button>
                 </div>
-                
                 <div>
                     <h4 class="font-medium text-gray-700 mb-3">Belanja</h4>
-                    <div id="belanjaContainer">
-                        <div class="belanja-item grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                            <input type="text" name="belanja_jenis[]" placeholder="Jenis Belanja" class="px-3 py-2 border border-gray-300 rounded-md">
-                            <input type="number" name="belanja_nominal[]" placeholder="Nominal" class="px-3 py-2 border border-gray-300 rounded-md">
-                            <textarea name="belanja_uraian[]" placeholder="Uraian" class="px-3 py-2 border border-gray-300 rounded-md"></textarea>
-                        </div>
-                    </div>
-                    <button type="button" onclick="addBelanjaRow()" class="text-primary hover:text-teal-700">+ Tambah Belanja</button>
+                    <div id="belanjaContainer"></div>
+                    <button type="button" onclick="addBelanjaRow()" class="mt-2 text-sm text-primary hover:text-teal-700">+ Tambah Baris Belanja</button>
                 </div>
             </div>
         </form>
     `;
 }
 
-function addPendapatanRow() {
+function addPendapatanRow(item = { jenis: "", nominal: "" }) {
     const container = document.getElementById("pendapatanContainer");
     const newRow = document.createElement("div");
-    newRow.className =
-        "pendapatan-item grid grid-cols-1 md:grid-cols-3 gap-4 mb-3";
+    newRow.className = "pendapatan-item grid grid-cols-11 gap-2 mb-2";
     newRow.innerHTML = `
-        <input type="text" name="pendapatan_jenis[]" placeholder="Jenis Pendapatan" class="px-3 py-2 border border-gray-300 rounded-md">
-        <input type="number" name="pendapatan_nominal[]" placeholder="Nominal" class="px-3 py-2 border border-gray-300 rounded-md">
-        <textarea name="pendapatan_uraian[]" placeholder="Uraian" class="px-3 py-2 border border-gray-300 rounded-md"></textarea>
+        <input type="text" name="pendapatan_jenis[]" placeholder="Jenis Pendapatan" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.jenis}">
+        <input type="number" name="pendapatan_nominal[]" placeholder="Nominal" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.nominal}">
+        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center">X</button>
     `;
     container.appendChild(newRow);
 }
 
-function addBelanjaRow() {
+function addBelanjaRow(item = { jenis: "", nominal: "" }) {
     const container = document.getElementById("belanjaContainer");
     const newRow = document.createElement("div");
-    newRow.className =
-        "belanja-item grid grid-cols-1 md:grid-cols-3 gap-4 mb-3";
+    newRow.className = "belanja-item grid grid-cols-11 gap-2 mb-2";
     newRow.innerHTML = `
-        <input type="text" name="belanja_jenis[]" placeholder="Jenis Belanja" class="px-3 py-2 border border-gray-300 rounded-md">
-        <input type="number" name="belanja_nominal[]" placeholder="Nominal" class="px-3 py-2 border border-gray-300 rounded-md">
-        <textarea name="belanja_uraian[]" placeholder="Uraian" class="px-3 py-2 border border-gray-300 rounded-md"></textarea>
+        <input type="text" name="belanja_jenis[]" placeholder="Jenis Belanja" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.jenis}">
+        <input type="number" name="belanja_nominal[]" placeholder="Nominal" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.nominal}">
+        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center">X</button>
     `;
     container.appendChild(newRow);
 }
 
 function editBantuanSosial() {
+    currentInfografisEditType = "bansos";
     showFullscreenPopup("Edit Bantuan Sosial", createBantuanSosialForm());
+    populateInfografisForms();
 }
 
 function createBantuanSosialForm() {
     return `
         <form id="infografisEditForm">
             <div class="space-y-4">
-                <div id="bansosContainer">
-                    <div class="bansos-item grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                        <input type="text" name="bansos_jenis[]" placeholder="Jenis Bantuan Sosial" class="px-3 py-2 border border-gray-300 rounded-md">
-                        <input type="number" name="bansos_jumlah[]" placeholder="Jumlah Penerima" class="px-3 py-2 border border-gray-300 rounded-md">
-                    </div>
-                </div>
-                <button type="button" onclick="addBansosRow()" class="text-primary hover:text-teal-700">+ Tambah Bantuan Sosial</button>
+                <h4 class="font-medium text-gray-700 mb-3">Jenis Bantuan dan Jumlah Penerima</h4>
+                <div id="bansosContainer"></div>
+                <button type="button" onclick="addBansosRow()" class="mt-2 text-sm text-primary hover:text-teal-700">+ Tambah Baris Bantuan</button>
             </div>
         </form>
     `;
 }
 
-function addBansosRow() {
+function addBansosRow(item = { jenis: "", jumlah: "" }) {
     const container = document.getElementById("bansosContainer");
     const newRow = document.createElement("div");
-    newRow.className = "bansos-item grid grid-cols-1 md:grid-cols-2 gap-4 mb-3";
+    newRow.className = "bansos-item grid grid-cols-11 gap-2 mb-2";
     newRow.innerHTML = `
-        <input type="text" name="bansos_jenis[]" placeholder="Jenis Bantuan Sosial" class="px-3 py-2 border border-gray-300 rounded-md">
-        <input type="number" name="bansos_jumlah[]" placeholder="Jumlah Penerima" class="px-3 py-2 border border-gray-300 rounded-md">
+        <input type="text" name="bansos_jenis[]" placeholder="Jenis Bantuan Sosial" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.jenis}">
+        <input type="number" name="bansos_jumlah[]" placeholder="Jumlah Penerima" class="col-span-5 px-3 py-2 border border-gray-300 rounded-md" value="${item.jumlah}">
+        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center">X</button>
     `;
     container.appendChild(newRow);
+}
+
+function populateInfografisForms() {
+    if (!window.infografisData) return;
+    const data = window.infografisData;
+
+    if (currentInfografisEditType === "statistik") {
+        const stats = data.statistik_penduduk || {};
+        document.getElementById("infografis_total_penduduk").value =
+            stats.total_penduduk || "";
+        document.getElementById("infografis_total_kk").value =
+            stats.total_kk || "";
+        document.getElementById("infografis_laki_laki").value =
+            stats.laki_laki || "";
+        document.getElementById("infografis_perempuan").value =
+            stats.perempuan || "";
+    } else if (currentInfografisEditType === "apbdesa") {
+        const apb = data.apbdesa || {};
+        document.getElementById("pendapatanContainer").innerHTML = "";
+        document.getElementById("belanjaContainer").innerHTML = "";
+
+        (apb.pendapatan || []).forEach((item) => addPendapatanRow(item));
+        if ((apb.pendapatan || []).length === 0) addPendapatanRow();
+
+        (apb.belanja || []).forEach((item) => addBelanjaRow(item));
+        if ((apb.belanja || []).length === 0) addBelanjaRow();
+    } else if (currentInfografisEditType === "bansos") {
+        const bansos = data.bantuan_sosial || {};
+        document.getElementById("bansosContainer").innerHTML = "";
+        const bansosArray = Object.entries(bansos).map(([jenis, jumlah]) => ({
+            jenis,
+            jumlah,
+        }));
+
+        if (bansosArray.length > 0) {
+            bansosArray.forEach((item) => addBansosRow(item));
+        } else {
+            addBansosRow();
+        }
+    }
+}
+
+let currentProfilEditType = null;
+
+function editVisiMisi() {
+    currentProfilEditType = "visiMisi";
+    const formContent = `
+        <form id="profilEditForm">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Visi</label>
+                    <textarea name="visi" id="profil_visi" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Misi</label>
+                    <textarea name="misi" id="profil_misi" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary"></textarea>
+                </div>
+            </div>
+        </form>
+    `;
+    showFullscreenPopup("Edit Visi & Misi", formContent);
+    populateProfilForms();
+}
+
+function editSejarah() {
+    currentProfilEditType = "sejarah";
+    const formContent = `
+        <form id="profilEditForm">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Sejarah Desa</label>
+                    <textarea name="sejarah" id="profil_sejarah" rows="10" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary"></textarea>
+                </div>
+            </div>
+        </form>
+    `;
+    showFullscreenPopup("Edit Sejarah Desa", formContent);
+    populateProfilForms();
+}
+
+function editOrganisasi() {
+    currentProfilEditType = "organisasi";
+    const formContent = `
+        <form id="profilEditForm" enctype="multipart/form-data">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nama Organisasi</label>
+                    <input type="text" name="organisasi_nama" id="profil_organisasi_nama" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Periode</label>
+                    <input type="text" name="organisasi_periode" id="profil_organisasi_periode" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Gambar Struktur</label>
+                    <div id="profil_organisasi_preview_container" class="mb-2"></div>
+                    <input type="file" name="organisasi_gambar" accept="image/*" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary">
+                    <p class="text-xs text-gray-500 mt-1">Biarkan kosong jika tidak ingin mengubah gambar.</p>
+                </div>
+            </div>
+        </form>
+    `;
+    showFullscreenPopup("Edit Struktur Organisasi", formContent);
+    populateProfilForms();
+}
+
+function populateProfilForms() {
+    if (!window.profilData) return;
+    const data = window.profilData;
+
+    if (currentProfilEditType === "visiMisi") {
+        document.getElementById("profil_visi").value = data.visi || "";
+        document.getElementById("profil_misi").value = data.misi || "";
+    } else if (currentProfilEditType === "sejarah") {
+        document.getElementById("profil_sejarah").value = data.sejarah || "";
+    } else if (currentProfilEditType === "organisasi") {
+        document.getElementById("profil_organisasi_nama").value =
+            data.organisasi?.nama || "";
+        document.getElementById("profil_organisasi_periode").value =
+            data.organisasi?.periode || "";
+        if (data.organisasi?.gambar_struktur) {
+            document.getElementById(
+                "profil_organisasi_preview_container"
+            ).innerHTML = `
+                <p class="text-sm text-gray-600 mb-1">Gambar saat ini:</p>
+                <img src="${data.organisasi.gambar_struktur}" class="w-48 h-auto rounded-lg" alt="Current image">
+            `;
+        }
+    }
+}
+//==================================================
+// FUNGSI-FUNGSI BARU UNTUK MANAJEMEN ORGANISASI
+//==================================================
+
+/**
+ * Membuka popup dengan form kosong untuk menambah organisasi baru.
+ */
+function addOrganisasi() {
+    // Gunakan fungsi yang sama untuk membuat form, tetapi tanpa data awal
+    showFullscreenPopup("Tambah Struktur Organisasi", createOrganisasiForm());
+    // Ganti tombol 'Apply' bawaan dengan tombol yang memanggil submitOrganisasiForm
+    setupOrganisasiPopupButtons();
+}
+
+/**
+ * Mengambil data organisasi berdasarkan ID dan menampilkan form edit yang sudah terisi.
+ */
+async function editOrganisasi(id) {
+    if (!window.profilData || !window.profilData.organisasi) return;
+    const item = window.profilData.organisasi.find((org) => org.id == id);
+
+    if (item) {
+        showFullscreenPopup(
+            "Edit Struktur Organisasi",
+            createOrganisasiForm(item)
+        );
+        setupOrganisasiPopupButtons(id); // Kirim id untuk mode edit
+    }
+}
+
+/**
+ * Menghapus satu organisasi berdasarkan ID setelah konfirmasi.
+ */
+async function deleteOrganisasi(id) {
+    if (confirm("Apakah Anda yakin ingin menghapus struktur organisasi ini?")) {
+        try {
+            // DIASUMSIKAN endpoint baru untuk organisasi adalah /api/organisasi/:id
+            const response = await fetch(`/api/organisasi/${id}`, {
+                method: "DELETE",
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                showNotification("Organisasi berhasil dihapus", "success");
+                loadSectionContent("profil"); // Muat ulang bagian profil
+            } else {
+                showNotification("Gagal menghapus organisasi", "error");
+            }
+        } catch (error) {
+            showNotification("Terjadi kesalahan", "error");
+        }
+    }
+}
+
+/**
+ * Menghapus semua organisasi yang dipilih dari checkbox.
+ */
+async function deleteSelectedOrganisasi() {
+    const checkedBoxes = document.querySelectorAll(
+        'input[name="organisasiCheck"]:checked'
+    );
+    if (checkedBoxes.length === 0) return;
+
+    if (
+        confirm(
+            `Apakah Anda yakin ingin menghapus ${checkedBoxes.length} organisasi terpilih?`
+        )
+    ) {
+        try {
+            const promises = Array.from(checkedBoxes).map((cb) =>
+                fetch(`/api/organisasi/${cb.value}`, { method: "DELETE" })
+            );
+
+            await Promise.all(promises);
+            showNotification("Organisasi terpilih berhasil dihapus", "success");
+            loadSectionContent("profil");
+        } catch (error) {
+            showNotification("Terjadi kesalahan saat menghapus", "error");
+        }
+    }
+}
+
+/**
+ * Membuat HTML untuk form tambah/edit organisasi.
+ */
+function createOrganisasiForm(item = null) {
+    return `
+        <form id="organisasiEditForm" enctype="multipart/form-data">
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nama Organisasi</label>
+                    <input type="text" name="nama" value="${
+                        item?.nama || ""
+                    }" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Periode</label>
+                    <input type="text" name="periode" value="${
+                        item?.periode || ""
+                    }" placeholder="Contoh: 2025-2030" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Gambar Struktur Organisasi</label>
+                    ${
+                        item?.gambar_struktur
+                            ? `
+                        <div class="mb-2">
+                            <p class="text-xs text-gray-500">Gambar saat ini:</p>
+                            <img src="${item.gambar_struktur}" class="w-48 h-auto rounded-lg border border-gray-200">
+                        </div>
+                    `
+                            : ""
+                    }
+                    <input type="file" name="gambar_struktur" accept="image/*" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                    <p class="text-xs text-gray-500 mt-1">${
+                        item
+                            ? "Biarkan kosong jika tidak ingin mengubah gambar."
+                            : ""
+                    }</p>
+                </div>
+            </div>
+        </form>
+    `;
+}
+
+/**
+ * Mengatur tombol pada popup agar memanggil fungsi submit yang benar.
+ */
+function setupOrganisasiPopupButtons(editId = null) {
+    // Hapus tombol 'Apply' lama dan ganti dengan yang baru
+    const popup = window.currentPopup;
+    if (!popup) return;
+
+    const buttonContainer = popup.querySelector(".flex.space-x-2");
+    buttonContainer.innerHTML = `
+        <button onclick="closePopup()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Batal</button>
+        <button onclick="submitOrganisasiForm(${editId})" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-teal-700">Simpan</button>
+    `;
+}
+
+/**
+ * Mengirim data form organisasi (tambah/edit) ke server.
+ */
+async function submitOrganisasiForm(editId) {
+    const form = document.getElementById("organisasiEditForm");
+    if (!form) return;
+
+    try {
+        showLoading();
+
+        let endpoint = "/api/organisasi"; // Endpoint baru untuk organisasi
+        let method = "POST";
+
+        if (editId) {
+            endpoint += `/${editId}`;
+            // Backend mungkin mengharapkan metode POST dengan _method=PUT untuk form-data
+            // atau langsung PUT. Kita akan coba POST dulu karena lebih umum untuk file upload.
+            // Jika backend mendukung PUT dengan FormData, bisa diganti.
+            method = "POST"; // Umumnya form dengan file menggunakan POST.
+            // Backend dapat menangani ini sebagai update.
+        }
+
+        const response = await fetch(endpoint, {
+            method: method,
+            body: new FormData(form),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            closePopup();
+            loadSectionContent("profil");
+            showNotification("Data organisasi berhasil disimpan", "success");
+        } else {
+            showNotification(result.message || "Gagal menyimpan data", "error");
+        }
+    } catch (error) {
+        console.error("Error submitting organisasi form:", error);
+        showNotification("Terjadi kesalahan", "error");
+    } finally {
+        hideLoading();
+    }
+}
+
+/**
+ * Logika untuk checkbox 'select all'.
+ */
+function selectAllOrganisasi(checkbox) {
+    const checkboxes = document.querySelectorAll(
+        'input[name="organisasiCheck"]'
+    );
+    checkboxes.forEach((cb) => (cb.checked = checkbox.checked));
+    updateDeleteOrganisasiButton();
+}
+
+/**
+ * Mengaktifkan/menonaktifkan tombol hapus terpilih.
+ */
+function updateDeleteOrganisasiButton() {
+    const checkedBoxes = document.querySelectorAll(
+        'input[name="organisasiCheck"]:checked'
+    );
+    const deleteBtn = document.getElementById("deleteSelectedOrganisasiBtn");
+    if (deleteBtn) deleteBtn.disabled = checkedBoxes.length === 0;
 }
